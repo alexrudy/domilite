@@ -1,14 +1,110 @@
 [project]
 name = "domilite"
-version = "0.1.0"
-description = "Add your description here"
+dynamic = ["version"]
+description = "A Python library for creating and manipulating HTML elements."
 readme = "README.md"
 authors = [
     { name = "Alex Rudy", email = "github@alexrudy.net" }
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "markupsafe>=3.0.2",
+]
+license = "MIT"
+keywords = []
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling",  "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/domilite/_version.py"
+
+[tool.hatch.version.raw-options]
+local_scheme = "no-local-version"
+
+[project.urls]
+Documentation = "https://github.com/alexrudy/domilite#readme"
+Issues = "https://github.com/alexrudy/domilite/issues"
+Source = "https://github.com/alexrudy/domilite"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/"]
+
+[tool.pytest.ini_options]
+testpaths = "tests"
+filterwarnings = """
+error
+ignore:There is no current event loop:DeprecationWarning:dominate.*
+"""
+addopts = [
+    "--cov-report=term-missing",
+    "--cov-config=pyproject.toml",
+    "--cov=bootlace",
+]
+log_level = "NOTSET"
+
+[tool.coverage.run]
+branch = true
+source = ["src/domilite", "tests"]
+omit = ["src/domilite/_version.py", "src/domilite/testing/*"]
+
+[tool.coverage.paths]
+source = ["src", "*/site-packages"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "def __str__",
+    "def __hash__",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "except BaseException:",
+    "\\.\\.\\.",
+    "if app is not None:",
+]
+omit = ["src/domilite/_version.py", "src/domilite/testing/*"]
+
+
+[tool.black]
+line-length = 120
+
+[tool.mypy]
+files = "src/domilite"
+python_version = "3.11"
+show_error_codes = true
+allow_redefinition = true
+disallow_subclassing_any = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+local_partial_types = true
+no_implicit_reexport = true
+strict_equality = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+[dependency-groups]
+tests = [
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
+]
+typing = [
+    "mypy>=1.15.0",
+]
