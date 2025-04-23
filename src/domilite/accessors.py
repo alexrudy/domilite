@@ -2,17 +2,22 @@ import dataclasses as dc
 from collections.abc import Iterator
 from collections.abc import MutableMapping
 from collections.abc import MutableSet
-from typing import TYPE_CHECKING
+from typing import Protocol
+from typing import TypeVar
+from typing import Generic
 
 
-if TYPE_CHECKING:
-    from .tags import html_tag
+class _HasAttributes(Protocol):
+    attributes: dict[str, str | bool]
 
 
-class Classes(MutableSet[str]):
+T = TypeVar("T", bound=_HasAttributes)
+
+
+class Classes(MutableSet[str], Generic[T]):
     """A helper for manipulating the class attribute on a tag."""
 
-    def __init__(self, tag: "html_tag") -> None:
+    def __init__(self, tag: T) -> None:
         self.tag = tag
 
     def _classes(self) -> list[str]:
@@ -30,7 +35,7 @@ class Classes(MutableSet[str]):
     def __len__(self) -> int:
         return len(self._classes())
 
-    def add(self, *classes: str) -> "html_tag":  # type: ignore[override]
+    def add(self, *classes: str) -> T:  # type: ignore[override]
         """Add classes to the tag."""
         current: list[str] = self._classes()
         for cls in classes:
@@ -39,7 +44,7 @@ class Classes(MutableSet[str]):
         self.tag.attributes["class"] = " ".join(current)
         return self.tag
 
-    def remove(self, *classes: str) -> "html_tag":  # type: ignore[override]
+    def remove(self, *classes: str) -> T:  # type: ignore[override]
         """Remove classes from the tag."""
         current: list[str] = self._classes()
         for cls in classes:
@@ -48,11 +53,12 @@ class Classes(MutableSet[str]):
         self.tag.attributes["class"] = " ".join(current)
         return self.tag
 
-    def discard(self, value: str) -> None:
+    def discard(self, value: str) -> T:  # type: ignore[override]
         """Remove a class if it exists."""
         self.remove(value)
+        return self.tag
 
-    def swap(self, old: str, new: str) -> "html_tag":
+    def swap(self, old: str, new: str) -> T:
         """Swap one class for another."""
         current: list[str] = self._classes()
         if old in current:
@@ -64,23 +70,23 @@ class Classes(MutableSet[str]):
 
 
 @dc.dataclass(frozen=True, slots=True)
-class PrefixAccessor:
+class PrefixAccessor(Generic[T]):
     """A helper for accessing attributes with a prefix."""
 
     #: Attribute prefix
     prefix: str
 
-    def __get__(self, instance: "html_tag", owner: type["html_tag"]) -> "PrefixAccess":
+    def __get__(self, instance: T, owner: type[T]) -> "PrefixAccess":
         return PrefixAccess(self.prefix, instance)
 
 
 @dc.dataclass(frozen=True, slots=True)
-class PrefixAccess(MutableMapping[str, str | bool]):
+class PrefixAccess(MutableMapping[str, str | bool], Generic[T]):
     #: Attribute prefix
     prefix: str
 
     #: The tag to access
-    tag: "html_tag"
+    tag: T
 
     def __getitem__(self, name: str) -> str | bool:
         return self.tag.attributes[f"{self.prefix}-{name}"]
@@ -99,12 +105,12 @@ class PrefixAccess(MutableMapping[str, str | bool]):
     def __len__(self) -> int:
         return sum(1 for _ in self)
 
-    def set(self, name: str, value: str | bool) -> "html_tag":
+    def set(self, name: str, value: str | bool) -> T:
         """Set an attribute with the given name."""
         self[name] = value
         return self.tag
 
-    def remove(self, name: str) -> "html_tag":
+    def remove(self, name: str) -> T:
         """Remove an attribute with the given name."""
         del self[name]
         return self.tag

@@ -46,12 +46,11 @@ include = ["src/"]
 testpaths = "tests"
 filterwarnings = """
 error
-ignore:There is no current event loop:DeprecationWarning:dominate.*
 """
 addopts = [
     "--cov-report=term-missing",
     "--cov-config=pyproject.toml",
-    "--cov=bootlace",
+    "--cov=domilite",
 ]
 log_level = "NOTSET"
 

@@ -4,6 +4,7 @@ from typing import Generic
 from typing import TypeVar
 
 from domilite.tags import html_tag
+from domilite.accessors import PrefixAccessor
 
 H = TypeVar("H", bound=html_tag)
 
@@ -25,6 +26,10 @@ class TagTemplate(Generic[H]):
 
     #: The attributes to apply to the tag
     attributes: dict[str, str] = dc.field(default_factory=dict)
+
+    data = PrefixAccessor("data")
+    aria = PrefixAccessor("aria")
+    hx = PrefixAccessor("hx")
 
     def __tag__(self) -> H:
         """Create a tag from the attributes and classes."""

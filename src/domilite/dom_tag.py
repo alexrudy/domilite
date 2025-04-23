@@ -35,6 +35,7 @@ class dom_tag:
 
     def __init__(self, *args: "str | dom_tag | Markup", **kwargs: str | bool) -> None:
         self.attributes = dict(**kwargs)
+        self.children = []
         self.add(*args)
 
     @property
@@ -44,19 +45,22 @@ class dom_tag:
             name = name[:-1]
         return name
 
-    def add(self, *children: "dom_tag | str | Markup") -> None:
+    def add(self, *children: "dom_tag | str | Markup") -> "dom_tag":
         for child in children:
             if isinstance(child, str):
                 child = Markup.escape(child)
             self.children.append(child)
+        return self
 
-    def remove(self, child: "dom_tag | str") -> None:
+    def remove(self, child: "dom_tag | str | Markup") -> "dom_tag":
         if isinstance(child, str):
             child = Markup.escape(child)
         self.children.remove(child)
+        return self
 
-    def clear(self) -> None:
+    def clear(self) -> "dom_tag":
         self.children.clear()
+        return self
 
     @overload
     def __getitem__(self, index: int) -> "dom_tag | Markup": ...
