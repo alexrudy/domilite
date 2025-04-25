@@ -83,9 +83,9 @@ def test_classes_swap(classes: Classes) -> None:
 
 
 def test_chaining_classes(attributes: Attributes, classes: Classes) -> None:
-    classes.add("one", "two", "three").classes.swap("three", "four").classes.remove(
-        "two"
-    ).classes.discard("five").classes.discard("four")
+    classes.add("one", "two", "three").classes.swap("three", "four").classes.remove("two").classes.discard(
+        "five"
+    ).classes.discard("four")
 
 
 def test_chaining_breaking_classes() -> None:
@@ -188,7 +188,12 @@ def test_attributes_render(attributes: Attributes, classes: Classes) -> None:
     assert attributes.render() == 'foo="bar"'
 
     classes.add("one", "two")
-    assert attributes.render() == 'foo="bar" class="one two"'
+    assert attributes.render() == 'class="one two" foo="bar"'
+
+
+def test_render_truthy(attributes: Attributes) -> None:
+    attributes["foo"] = True
+    assert attributes.render() == "foo"
 
 
 def test_attributes_equal(attributes: Attributes) -> None:

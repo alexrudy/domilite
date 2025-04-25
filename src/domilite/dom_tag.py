@@ -3,7 +3,7 @@ import sys
 from collections.abc import Iterator
 from enum import auto
 from typing import TYPE_CHECKING, ClassVar
-from typing import overload
+from typing import overload, Self
 
 from markupsafe import Markup
 
@@ -33,9 +33,7 @@ def _trace_live(msg: str) -> None:
     frame = stack[1]
     self = frame.frame.f_locals.get("self", None)
     name = getattr(self, "name", "unknown")
-    logger.debug(
-        f"[<{name}>:{frame.filename}:{frame.lineno} in {frame.function}] {msg}"
-    )
+    logger.debug(f"[<{name}>:{frame.filename}:{frame.lineno} in {frame.function}] {msg}")
 
 
 def _trace_noop(msg: str) -> None:  # pragma: no cover
@@ -55,7 +53,22 @@ def render_tracing() -> Iterator[None]:
         _trace = _trace_noop
 
 
-class dom_tag:
+def normalize_name(name: str) -> str:
+    if name.startswith("_"):
+        name = name.removeprefix("_")
+    if name.endswith("_"):
+        name = name.removesuffix("_")
+    return name
+
+
+class DomTagMeta(type):
+    @property
+    def name(self) -> str:
+        name = getattr(self, "__tagname__", self.__name__)
+        return normalize_name(name)
+
+
+class dom_tag(metaclass=DomTagMeta):
     __slots__ = ("_attributes_inner", "children", "__weakref__")
 
     flags: ClassVar["Flags"] = Flags.PRETTY
@@ -69,22 +82,30 @@ class dom_tag:
         self.children = []
         self.add(*args)
 
+    @property
+    def name(self) -> str:
+        return type(self).name
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, dom_tag):
             return NotImplemented
 
-        return (
-            (self.name == other.name)
-            and (self.attributes == other.attributes)
-            and (self.children == other.children)
-        )
+        return (self.name == other.name) and (self.attributes == other.attributes) and (self.children == other.children)
 
-    @property
-    def name(self) -> str:
-        name = getattr(self, "__tagname__", type(self).__name__)
-        if name[-1] == "_":
-            name = name[:-1]
-        return name
+    @classmethod
+    def find_tag_type(cls, name: str) -> type[Self] | None:
+        normalized = normalize_name(name)
+        for scls in cls.iter_subclasses():
+            if scls.name == normalized:
+                return scls
+        return None
+
+    @classmethod
+    def iter_subclasses(cls) -> Iterator[type[Self]]:
+        yield cls
+        for scls in cls.__subclasses__():
+            yield scls
+            yield from scls.iter_subclasses()
 
     def add(self, *children: "dom_tag | str | Markup") -> "dom_tag":
         for child in children:
@@ -118,7 +139,8 @@ class dom_tag:
                 return self.attributes[index]
             except KeyError:
                 raise KeyError(f"Attribute not found: {index}")
-        raise TypeError(f"Invalid index type: {type(index)}")
+        else:
+            raise TypeError(f"Invalid index type: {type(index)}")
 
     @overload
     def __setitem__(self, index: int, value: "str |dom_tag | Markup") -> None: ...
@@ -144,6 +166,20 @@ class dom_tag:
                 raise TypeError(f"Invalid value type for attribute: {type(value)}")
 
             self.attributes[index] = value
+        else:
+            raise TypeError(f"Invalid index type: {type(index)}")
+
+    def __delitem__(self, index: str | int) -> None:
+        if isinstance(index, int):
+            try:
+                del self.children[index]
+            except IndexError:
+                raise IndexError(f"Index for children out of range: {index}")
+        elif isinstance(index, str):
+            try:
+                del self.attributes[index]
+            except KeyError:
+                raise KeyError(f"Attribute not found: {index}")
         else:
             raise TypeError(f"Invalid index type: {type(index)}")
 
@@ -173,15 +209,7 @@ class dom_tag:
             String to use for indenting in `pretty` mode. Defaults to two spaces: `  `
 
         """
-        if pretty is True:
-            flags |= RenderFlags.PRETTY
-        elif pretty is False:
-            flags &= ~RenderFlags.PRETTY
-        if xhtml is True:
-            flags |= RenderFlags.XHTML
-        elif xhtml is False:
-            flags &= ~RenderFlags.XHTML
-
+        flags = flags.with_arguments(pretty=pretty, xhtml=xhtml)
         stream = RenderStream(indent, flags)
         _trace(f"_render {flags}")
         self._render(stream)
@@ -203,7 +231,7 @@ class dom_tag:
         if self.attributes:
             _trace(f"attributes {len(self.attributes)}")
             stream.write(" ")
-            stream.write(self.attributes.render())
+            self.attributes._render(stream)
 
         if (self.flags & Flags.SINGLE) and (stream.flags & RenderFlags.XHTML):
             _trace("open single xhtml />")
@@ -229,9 +257,7 @@ class dom_tag:
         inline = True
         for child in self.children:
             if isinstance(child, dom_tag):
-                if (
-                    RenderFlags.PRETTY in stream.flags
-                ) and Flags.INLINE not in child.flags:
+                if (RenderFlags.PRETTY in stream.flags) and Flags.INLINE not in child.flags:
                     _trace("newline()")
                     inline = False
                     stream.newline()
@@ -260,3 +286,9 @@ class dom_tag:
                 parts.append(f"{len(self.children)} children")
 
         return "<" + " ".join(parts) + ">"
+
+    def descendants(self) -> Iterator["dom_tag"]:
+        for child in self.children:
+            if isinstance(child, dom_tag):
+                yield child
+                yield from child.descendants()

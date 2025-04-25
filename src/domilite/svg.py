@@ -46,7 +46,7 @@ class svg_tag(html_tag):
     @staticmethod
     def normalize_attribute(attribute: str) -> str:
         words = attribute.split("_")
-        if words[0] in DASHED_ATTRIBUTES:
+        if words and words[0] in DASHED_ATTRIBUTES:
             return attribute.replace("_", "-")
         return attribute
 

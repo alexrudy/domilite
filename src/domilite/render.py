@@ -39,3 +39,29 @@ class RenderStream:
         self.current_indent += 1
         yield
         self.current_indent -= 1
+
+    @contextlib.contextmanager
+    def parts(self, joiner: str = " ") -> Iterator["RenderParts"]:
+        parts = RenderParts(self, joiner=joiner)
+        yield parts
+        parts.close()
+
+
+@dc.dataclass
+class RenderParts:
+    stream: RenderStream
+    joiner: str = " "
+    parts: list[str] = dc.field(default_factory=list, init=False)
+
+    @property
+    def flags(self) -> RenderFlags:
+        return self.stream.flags
+
+    def append(self, item: str) -> None:
+        self.parts.append(item)
+
+    def prepend(self, item: str) -> None:
+        self.parts.insert(0, item)
+
+    def close(self) -> None:
+        self.stream.write(self.joiner.join(self.parts))

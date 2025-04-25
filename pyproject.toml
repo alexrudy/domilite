@@ -84,6 +84,12 @@ omit = ["src/domilite/_version.py", "src/domilite/testing/*"]
 [tool.black]
 line-length = 120
 
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
 [tool.mypy]
 files = "src/domilite"
 python_version = "3.11"

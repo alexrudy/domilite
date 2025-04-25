@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Protocol, Self, overload
 from typing import TypeVar
 from typing import Generic
 
+from domilite.render import RenderFlags, RenderStream, RenderParts
+
 if TYPE_CHECKING:
     from .dom_tag import dom_tag
 
@@ -40,9 +42,7 @@ class Classes(MutableSet[str], Generic[S]):
         tag = self.tag()
         if tag is not None:
             return tag
-        raise ChainedMethodError(
-            "method chaining is unavailable, underlying instance is missing"
-        )
+        raise ChainedMethodError("method chaining is unavailable, underlying instance is missing")
 
     def clear(self) -> S:  # type: ignore[override]
         self.classes.clear()
@@ -117,9 +117,7 @@ class Attributes(MutableMapping[str, str | bool], Generic[S]):
         tag = self.tag()
         if tag is not None:
             return tag
-        raise ChainedMethodError(
-            "method chaining is unavailable, underlying instance is missing"
-        )
+        raise ChainedMethodError("method chaining is unavailable, underlying instance is missing")
 
     def normalize_attribute(self, attribute: str) -> str:
         # Shorthand notation
@@ -134,6 +132,9 @@ class Attributes(MutableMapping[str, str | bool], Generic[S]):
             "phor": "for",
         }.get(attribute, attribute)
 
+        if attribute == "_":
+            return attribute
+
         # Workaround for Python's reserved words
         if attribute[0] == "_":
             attribute = attribute[1:]
@@ -147,16 +148,12 @@ class Attributes(MutableMapping[str, str | bool], Generic[S]):
         if attribute.split("_")[0] in ("xml", "xmlns", "xlink"):
             attribute = attribute.replace("_", ":")
 
-        if (tag := self.tag()) is not None and (
-            normalize := getattr(tag, "normalize_attribute", None)
-        ) is not None:
+        if (tag := self.tag()) is not None and (normalize := getattr(tag, "normalize_attribute", None)) is not None:
             attribute = normalize(attribute)
 
         return attribute
 
-    def normalize_pair(
-        self, attribute: str, value: str | bool
-    ) -> tuple[str, str | None]:
+    def normalize_pair(self, attribute: str, value: str | bool) -> tuple[str, str | None]:
         attribute = self.normalize_attribute(attribute)
         if value is True:
             value = attribute
@@ -189,7 +186,7 @@ class Attributes(MutableMapping[str, str | bool], Generic[S]):
             return
 
         if normalized is None:
-            del self.attributes[name]
+            self.attributes.pop(name, None)
         else:
             self.attributes[name] = normalized
 
@@ -219,12 +216,29 @@ class Attributes(MutableMapping[str, str | bool], Generic[S]):
 
         return self.attributes == other.attributes and self.classes == other.classes
 
-    def render(self) -> str:
-        parts = [f'{name}="{value}"' for name, value in self.attributes.items()]
+    def render(
+        self, flags: RenderFlags = RenderFlags.PRETTY, pretty: bool | None = None, xhtml: bool | None = None
+    ) -> str:
+        flags = flags.with_arguments(pretty=pretty, xhtml=xhtml)
+        stream = RenderStream()
+        self._render(stream)
+        return stream.getvalue()
+
+    def _render(self, stream: RenderStream) -> None:
         if self.classes:
-            classes = " ".join(self.classes)
-            parts.append(f'class="{classes}"')
-        return " ".join(parts)
+            items = itertools.chain(self.attributes.items(), (("class", self.classes.render()),))
+        else:
+            items = self.attributes.items()
+
+        with stream.parts() as parts:
+            for name, value in sorted(items):
+                self._render_attribute(name, value, parts)
+
+    def _render_attribute(self, name: str, value: str, parts: RenderParts) -> None:
+        if name == value and not (parts.flags & RenderFlags.XHTML):
+            parts.append(name)
+        else:
+            parts.append(f'{name}="{value}"')
 
     def set(self, key: str, value: str | bool) -> S:
         self[key] = value
@@ -238,7 +252,7 @@ class Attributes(MutableMapping[str, str | bool], Generic[S]):
         return f"Attributes({self.render()})"
 
 
-@dc.dataclass(slots=True, weakref_slot=True)
+@dc.dataclass()
 class AttributesProperty(Generic[S]):
     name: str | None = dc.field(default=None, init=False)
     attribute: str | None = dc.field(default=None, init=False)
@@ -253,14 +267,10 @@ class AttributesProperty(Generic[S]):
     @overload
     def __get__(self, instance: None, owner: type[S] | None = None) -> "Self": ...
 
-    def __get__(
-        self, instance: S | None, owner: type[S] | None = None
-    ) -> "Attributes[S] | Self":
+    def __get__(self, instance: S | None, owner: type[S] | None = None) -> "Attributes[S] | Self":
         if instance is None:
             return self
-        assert isinstance(self.attribute, str), (
-            "Accessing attributes before __set_name__ was called"
-        )
+        assert isinstance(self.attribute, str), "Accessing attributes before __set_name__ was called"
         if (attributes := getattr(instance, self.attribute, None)) is not None:
             return attributes
         attributes = Attributes.from_tag(instance)
@@ -271,7 +281,7 @@ class AttributesProperty(Generic[S]):
         return ClassesProperty(weakref.ref(self))
 
 
-@dc.dataclass(slots=True)
+@dc.dataclass()
 class ClassesProperty(Generic[S]):
     attributes: weakref.ReferenceType[AttributesProperty[S]]
 
@@ -298,7 +308,7 @@ class _HasAttributes(Protocol):
 T = TypeVar("T", bound="dom_tag | _HasAttributes")
 
 
-@dc.dataclass(frozen=True, slots=True)
+@dc.dataclass(frozen=True)
 class PrefixAccessor(Generic[T]):
     """A helper for accessing attributes with a prefix."""
 

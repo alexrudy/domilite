@@ -16,6 +16,9 @@ def test_name():
     bar = type("bar_", (dom_tag,), {})
     assert bar().name == "bar"
 
+    baz = type("_baz", (dom_tag,), {})
+    assert baz().name == "baz"
+
 
 def test_children():
     a = dom_tag()
@@ -44,10 +47,7 @@ def test_children():
     with pytest.raises(IndexError):
         a[6] = "wat"
 
-    assert (
-        a.render(pretty=False)
-        == "<dom_tag><dom_tag></dom_tag><dom_tag></dom_tag></dom_tag>"
-    )
+    assert a.render(pretty=False) == "<dom_tag><dom_tag></dom_tag><dom_tag></dom_tag></dom_tag>"
 
     a[1] = "<>"
     assert a[1] == Markup.escape("<>")
@@ -78,6 +78,21 @@ def test_index():
     with pytest.raises(TypeError):
         a[b"what"] = "foo"  # type: ignore
 
+    del a["foo"]
+    assert "foo" not in a.attributes
+
+    del a[0]
+    assert not a.children
+
+    with pytest.raises(IndexError):
+        del a[1]
+
+    with pytest.raises(KeyError):
+        del a["bar"]
+
+    with pytest.raises(TypeError):
+        del a[b"what"]  # type: ignore
+
 
 def test_render():
     a = dom_tag()
@@ -90,20 +105,10 @@ def test_render_pretty():
     b = dom_tag(name="b")
     a = dom_tag(b, name="a")
 
-    assert (
-        a.render() == '<dom_tag name="a">\n  <dom_tag name="b"></dom_tag>\n</dom_tag>'
-    )
-    assert (
-        a.render(pretty=False)
-        == '<dom_tag name="a"><dom_tag name="b"></dom_tag></dom_tag>'
-    )
-    assert (
-        a.render(pretty=True)
-        == '<dom_tag name="a">\n  <dom_tag name="b"></dom_tag>\n</dom_tag>'
-    )
-    assert (
-        a.__html__() == '<dom_tag name="a">\n  <dom_tag name="b"></dom_tag>\n</dom_tag>'
-    )
+    assert a.render() == '<dom_tag name="a">\n  <dom_tag name="b"></dom_tag>\n</dom_tag>'
+    assert a.render(pretty=False) == '<dom_tag name="a"><dom_tag name="b"></dom_tag></dom_tag>'
+    assert a.render(pretty=True) == '<dom_tag name="a">\n  <dom_tag name="b"></dom_tag>\n</dom_tag>'
+    assert a.__html__() == '<dom_tag name="a">\n  <dom_tag name="b"></dom_tag>\n</dom_tag>'
 
     class dom_single(dom_tag):
         flags = Flags.SINGLE
@@ -137,7 +142,7 @@ def test_attributes():
 
     a["bar"] = "foo"
     assert a.attributes["bar"] == "foo"
-    assert a.render() == '<dom_tag foo="bar" bar="foo"></dom_tag>'
+    assert a.render() == '<dom_tag bar="foo" foo="bar"></dom_tag>'
 
     with pytest.raises(KeyError):
         a["baz"]
@@ -157,3 +162,13 @@ def test_bool():
     a = dom_tag()
     assert bool(a) is True
     assert a
+
+
+def test_find_tag():
+    parent = type("parent", (dom_tag,), {})
+    child = type("child", (parent,), {})
+    a = type("a", (child,), {})
+
+    assert parent.find_tag_type("child") == child
+    assert parent.find_tag_type("a") == a
+    assert parent.find_tag_type("html") is None

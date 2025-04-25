@@ -1,3 +1,4 @@
+from domilite.render import RenderStream
 from markupsafe import Markup
 
 from domilite.accessors import PrefixAccessor
@@ -500,4 +501,17 @@ class font(html_tag):
 
 
 class comment(html_tag):
-    """The <comment> HTML element is used to add comments to the HTML code."""
+    """Adds HTML comments."""
+
+    def _render(self, stream: "RenderStream") -> None:
+        if any(isinstance(decendant, comment) for decendant in self.descendants()):
+            raise ValueError("HTML comments <!-- may not be nested")
+
+        stream.write("<!--")
+
+        with stream.indented():
+            inline = self._render_children(stream)
+
+        if not inline:
+            stream.newline()
+        stream.write("-->")
