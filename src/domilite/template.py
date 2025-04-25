@@ -1,6 +1,6 @@
 import dataclasses as dc
+from collections.abc import Iterable
 from collections.abc import Mapping
-from collections.abc import Sequence
 from typing import Any
 from typing import ClassVar
 from typing import Generic
@@ -34,7 +34,7 @@ class TagTemplate(Generic[H]):
     hx: PrefixAccessor["TagTemplate"] = PrefixAccessor("hx")
 
     def __init__(
-        self, tag: type[H], attributes: Mapping[str, str | bool] | None = None, classes: Sequence[str] | None = None
+        self, tag: type[H], attributes: Mapping[str, str | bool] | None = None, classes: Iterable[str] | None = None
     ) -> None:
         self.tag = tag
         if attributes is not None:
