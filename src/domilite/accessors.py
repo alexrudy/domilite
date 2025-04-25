@@ -1,72 +1,298 @@
 import dataclasses as dc
+import weakref
+import itertools
 from collections.abc import Iterator
 from collections.abc import MutableMapping
 from collections.abc import MutableSet
-from typing import Protocol
+from typing import Protocol, Self, overload
 from typing import TypeVar
 from typing import Generic
 
 
-class _HasAttributes(Protocol):
-    attributes: dict[str, str | bool]
+S = TypeVar("S")
+
+SPECIAL_PREFIXES = {"data", "aria", "role"}
 
 
-T = TypeVar("T", bound=_HasAttributes)
+class ChainedMethodError(TypeError):
+    pass
 
 
-class Classes(MutableSet[str], Generic[T]):
+@dc.dataclass(frozen=True, slots=True, repr=False)
+class Classes(MutableSet[str], Generic[S]):
     """A helper for manipulating the class attribute on a tag."""
 
-    def __init__(self, tag: T) -> None:
-        self.tag = tag
-
-    def _classes(self) -> list[str]:
-        value = self.tag.attributes.get("class", "")
-        if not isinstance(value, str):
-            raise TypeError(f"Expected str, got {type(value)}")
-        return value.split()
+    tag: weakref.ReferenceType[S] = dc.field(compare=False, hash=False)
+    classes: list[str] = dc.field(default_factory=list, init=False)
 
     def __contains__(self, cls: object) -> bool:
-        return cls in self._classes()
+        return cls in self.classes
 
     def __iter__(self) -> Iterator[str]:
-        return iter(self._classes())
+        return iter(self.classes)
 
     def __len__(self) -> int:
-        return len(self._classes())
+        return len(self.classes)
 
-    def add(self, *classes: str) -> T:  # type: ignore[override]
+    def _chain(self) -> S:
+        tag = self.tag()
+        if tag is not None:
+            return tag
+        raise ChainedMethodError(
+            "method chaining is unavailable, underlying instance is missing"
+        )
+
+    def clear(self) -> S:  # type: ignore[override]
+        self.classes.clear()
+        return self._chain()
+
+    def _replace(self, classes: list[str]) -> None:
+        self.classes[:] = classes
+
+    def replace(self, classes: str) -> S:
+        self._replace(classes.split())
+        return self._chain()
+
+    def render(self) -> str:
+        return " ".join(self.classes)
+
+    def __str__(self) -> str:
+        return self.render()
+
+    def __repr__(self) -> str:
+        if not self.classes:
+            return "{}"
+        parts = ["{"]
+        parts.append(", ".join(repr(item) for item in self.classes))
+        parts.append("}")
+        return " ".join(parts)
+
+    def add(self, *classes: str) -> S:  # type: ignore[override]
         """Add classes to the tag."""
-        current: list[str] = self._classes()
+        current: list[str] = self.classes
         for cls in classes:
             if cls not in current:
                 current.append(cls)
-        self.tag.attributes["class"] = " ".join(current)
-        return self.tag
+        return self._chain()
 
-    def remove(self, *classes: str) -> T:  # type: ignore[override]
-        """Remove classes from the tag."""
-        current: list[str] = self._classes()
-        for cls in classes:
-            if cls in current:
-                current.remove(cls)
-        self.tag.attributes["class"] = " ".join(current)
-        return self.tag
+    def remove(self, value: str) -> S:  # type: ignore[override]
+        """Remove element elem from the set. Raises KeyError if elem is not contained in the set."""
+        if value in self.classes:
+            self.classes.remove(value)
+        else:
+            raise KeyError(f"Class '{value}' not found")
+        return self._chain()
 
-    def discard(self, value: str) -> T:  # type: ignore[override]
-        """Remove a class if it exists."""
-        self.remove(value)
-        return self.tag
+    def discard(self, value: str) -> S:  # type: ignore[override]
+        """Remove class value from the set if it is present."""
+        if value in self.classes:
+            self.classes.remove(value)
+        return self._chain()
 
-    def swap(self, old: str, new: str) -> T:
+    def swap(self, old: str, new: str) -> S:
         """Swap one class for another."""
-        current: list[str] = self._classes()
-        if old in current:
-            current.remove(old)
-        if new not in current:
-            current.append(new)
-        self.tag.attributes["class"] = " ".join(current)
-        return self.tag
+        if old in self.classes:
+            self.classes.remove(old)
+        if new not in self.classes:
+            self.classes.append(new)
+        return self._chain()
+
+
+@dc.dataclass(repr=False, frozen=True, slots=True)
+class Attributes(MutableMapping[str, str | bool], Generic[S]):
+    tag: weakref.ReferenceType[S] = dc.field(compare=False, hash=False)
+    attributes: dict[str, str] = dc.field(default_factory=dict, init=False)
+    classes: Classes[S] = dc.field(init=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "classes", Classes(self.tag))
+
+    @classmethod
+    def from_tag(cls, tag: S) -> Self:
+        return cls(weakref.ref(tag))
+
+    def _chain(self) -> S:
+        tag = self.tag()
+        if tag is not None:
+            return tag
+        raise ChainedMethodError(
+            "method chaining is unavailable, underlying instance is missing"
+        )
+
+    def normalize_attribute(self, attribute: str) -> str:
+        # Shorthand notation
+        attribute = {
+            "cls": "class",
+            "className": "class",
+            "class_name": "class",
+            "klass": "class",
+            "fr": "for",
+            "html_for": "for",
+            "htmlFor": "for",
+            "phor": "for",
+        }.get(attribute, attribute)
+
+        # Workaround for Python's reserved words
+        if attribute[0] == "_":
+            attribute = attribute[1:]
+
+        if attribute[-1] == "_":
+            attribute = attribute[:-1]
+
+        if any(attribute.startswith(prefix + "_") for prefix in SPECIAL_PREFIXES):
+            attribute = attribute.replace("_", "-")
+
+        if attribute.split("_")[0] in ("xml", "xmlns", "xlink"):
+            attribute = attribute.replace("_", ":")
+
+        if (tag := self.tag()) is not None and (
+            normalize := getattr(tag, "normalize_attribute", None)
+        ) is not None:
+            attribute = normalize(attribute)
+
+        return attribute
+
+    def normalize_pair(
+        self, attribute: str, value: str | bool
+    ) -> tuple[str, str | None]:
+        attribute = self.normalize_attribute(attribute)
+        if value is True:
+            value = attribute
+        if value is False:
+            return (attribute, None)
+        return attribute, value
+
+    def __getitem__(self, key: str) -> str | bool:
+        name = self.normalize_attribute(key)
+        if name == "class":
+            return " ".join(self.classes)
+
+        try:
+            value = self.attributes[name]
+        except KeyError:
+            raise KeyError(key) from None
+
+        if value == name:
+            return True
+        return value
+
+    def __setitem__(self, key: str, value: str | bool) -> None:
+        name, normalized = self.normalize_pair(key, value)
+
+        if name == "class":
+            if normalized is None:
+                self.classes.clear()
+            else:
+                self.classes.replace(normalized)
+            return
+
+        if normalized is None:
+            del self.attributes[name]
+        else:
+            self.attributes[name] = normalized
+
+    def __delitem__(self, key: str, /) -> None:
+        name = self.normalize_attribute(key)
+        if name == "class":
+            self.classes.clear()
+        else:
+            del self.attributes[name]
+
+    def __iter__(self) -> Iterator[str]:
+        if self.classes:
+            return itertools.chain(iter(self.attributes), itertools.repeat("class", 1))
+        return iter(self.attributes)
+
+    def __len__(self) -> int:
+        if self.classes:
+            return len(self.attributes) + 1
+        return len(self.attributes)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, dict):
+            return {**self.attributes, "class": " ".join(self.classes)} == other
+
+        if not isinstance(other, Attributes):
+            return NotImplemented
+
+        return self.attributes == other.attributes and self.classes == other.classes
+
+    def render(self) -> str:
+        parts = [f'{name}="{value}"' for name, value in self.attributes.items()]
+        if self.classes:
+            classes = " ".join(self.classes)
+            parts.append(f'class="{classes}"')
+        return " ".join(parts)
+
+    def set(self, key: str, value: str | bool) -> S:
+        self[key] = value
+        return self._chain()
+
+    def delete(self, key: str) -> S:
+        del self[key]
+        return self._chain()
+
+    def __repr__(self) -> str:
+        return f"Attributes({self.render()})"
+
+
+@dc.dataclass(slots=True, weakref_slot=True)
+class AttributesProperty(Generic[S]):
+    name: str | None = dc.field(default=None, init=False)
+    attribute: str | None = dc.field(default=None, init=False)
+
+    def __set_name__(self, owner: type[S], name: str) -> None:
+        self.name = name
+        self.attribute = f"_{self.name}_inner"
+
+    @overload
+    def __get__(self, instance: S, owner: type[S] | None = None) -> "Attributes[S]": ...
+
+    @overload
+    def __get__(self, instance: None, owner: type[S] | None = None) -> "Self": ...
+
+    def __get__(
+        self, instance: S | None, owner: type[S] | None = None
+    ) -> "Attributes[S] | Self":
+        if instance is None:
+            return self
+        assert isinstance(self.attribute, str), (
+            "Accessing attributes before __set_name__ was called"
+        )
+        if (attributes := getattr(instance, self.attribute, None)) is not None:
+            return attributes
+        attributes = Attributes.from_tag(instance)
+        setattr(instance, self.attribute, attributes)
+        return attributes
+
+    def classes(self) -> "ClassesProperty":
+        return ClassesProperty(weakref.ref(self))
+
+
+@dc.dataclass(slots=True)
+class ClassesProperty(Generic[S]):
+    attributes: weakref.ReferenceType[AttributesProperty[S]]
+
+    @overload
+    def __get__(self, instance: S, owner: type[S]) -> "Classes[S]": ...
+
+    @overload
+    def __get__(self, instance: None, owner: type[S]) -> "Self": ...
+
+    def __get__(self, instance: S | None, owner: type[S]) -> "Classes[S] | Self":
+        if instance is None:
+            return self
+        attributes = self.attributes()
+        if attributes is None:
+            raise ValueError("Attributes has been garbage collected")
+        return attributes.__get__(instance, owner).classes
+
+
+class _HasAttributes(Protocol):
+    attributes: Attributes
+
+
+T = TypeVar("T", bound=_HasAttributes)
 
 
 @dc.dataclass(frozen=True, slots=True)

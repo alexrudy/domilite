@@ -49,6 +49,7 @@ error
 """
 addopts = [
     "--cov-report=term-missing",
+    "--cov-report=html",
     "--cov-config=pyproject.toml",
     "--cov=domilite",
 ]
@@ -103,6 +104,10 @@ warn_unused_ignores = true
 tests = [
     "pytest>=8.3.5",
     "pytest-cov>=6.1.1",
+]
+tox = [
+    "tox>=4.25.0",
+    "tox-uv>=1.25.0",
 ]
 typing = [
     "mypy>=1.15.0",

@@ -1,8 +1,5 @@
 import contextlib
-import dataclasses as dc
-import enum
 import sys
-import io
 from collections.abc import Iterator
 from enum import auto
 from typing import TYPE_CHECKING, ClassVar
@@ -10,33 +7,77 @@ from typing import overload
 
 from markupsafe import Markup
 
-if not TYPE_CHECKING and sys.version_info < (3, 5, 2):
+from .render import RenderFlags, RenderStream
+from .flags import Flag
+from .accessors import AttributesProperty
+
+if not TYPE_CHECKING and sys.version_info < (3, 5, 2):  # pragma: no cover
 
     def overload(f):
         return f
 
 
-class Flags(enum.Flag):
+class Flags(Flag):
     SINGLE = auto()
     PRETTY = auto()
     INLINE = auto()
 
 
-SPECIAL_PREFIXES = ("data-", "aria-", "role-")
+def _trace_live(msg: str) -> None:
+    import inspect
+    import logging
+
+    logger = logging.getLogger()
+
+    stack = inspect.stack()
+    frame = stack[1]
+    self = frame.frame.f_locals.get("self", None)
+    name = getattr(self, "name", "unknown")
+    logger.debug(
+        f"[<{name}>:{frame.filename}:{frame.lineno} in {frame.function}] {msg}"
+    )
+
+
+def _trace_noop(msg: str) -> None:  # pragma: no cover
+    pass
+
+
+_trace = _trace_noop
+
+
+@contextlib.contextmanager
+def render_tracing() -> Iterator[None]:
+    global _trace
+    try:
+        _trace = _trace_live
+        yield
+    finally:
+        _trace = _trace_noop
 
 
 class dom_tag:
-    __slots__ = ("attributes", "children")
+    __slots__ = ("_attributes_inner", "children", "__weakref__")
 
     flags: ClassVar["Flags"] = Flags.PRETTY
 
-    attributes: dict[str, str | bool]
+    attributes = AttributesProperty()
+    classes = attributes.classes()
     children: list["dom_tag | Markup"]
 
     def __init__(self, *args: "str | dom_tag | Markup", **kwargs: str | bool) -> None:
-        self.attributes = dict(**kwargs)
+        self.attributes.update(kwargs)
         self.children = []
         self.add(*args)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, dom_tag):
+            return NotImplemented
+
+        return (
+            (self.name == other.name)
+            and (self.attributes == other.attributes)
+            and (self.children == other.children)
+        )
 
     @property
     def name(self) -> str:
@@ -52,9 +93,7 @@ class dom_tag:
             self.children.append(child)
         return self
 
-    def remove(self, child: "dom_tag | str | Markup") -> "dom_tag":
-        if isinstance(child, str):
-            child = Markup.escape(child)
+    def remove(self, child: "dom_tag | Markup") -> "dom_tag":
         self.children.remove(child)
         return self
 
@@ -85,19 +124,25 @@ class dom_tag:
     def __setitem__(self, index: int, value: "str |dom_tag | Markup") -> None: ...
 
     @overload
-    def __setitem__(self, index: str, value: "str") -> None: ...  # noqa: F811
+    def __setitem__(self, index: str, value: "str | bool") -> None: ...  # noqa: F811
 
-    def __setitem__(self, index: int | str, value: "str | dom_tag | Markup") -> None:  # noqa: F811
+    def __setitem__(  # noqa: F811
+        self, index: int | str, value: "str | bool | dom_tag | Markup"
+    ) -> None:
         if isinstance(index, int):
             if isinstance(value, str):
                 value = Markup.escape(value)
+            elif isinstance(value, bool):
+                raise TypeError(f"Invalid child type: {type(value)}")
+
             try:
                 self.children[index] = value
             except IndexError:
                 raise IndexError(f"Index for children out of range: {index}")
         elif isinstance(index, str):
-            if not isinstance(value, str):
+            if not isinstance(value, (str, bool)):
                 raise TypeError(f"Invalid value type for attribute: {type(value)}")
+
             self.attributes[index] = value
         else:
             raise TypeError(f"Invalid index type: {type(index)}")
@@ -113,104 +158,87 @@ class dom_tag:
 
     __nonzero__ = __bool__
 
-    @staticmethod
-    def normalize_attribute(attribute: str) -> str:
-        """Converts attribute names to their normalized form."""
-        # Shorthand notation
-        attribute = {
-            "cls": "class",
-            "className": "class",
-            "class_name": "class",
-            "klass": "class",
-            "fr": "for",
-            "html_for": "for",
-            "htmlFor": "for",
-            "phor": "for",
-        }.get(attribute, attribute)
-
-        # Workaround for Python's reserved words
-        if attribute[0] == "_":
-            attribute = attribute[1:]
-
-        if attribute[-1] == "_":
-            attribute = attribute[:-1]
-
-        if any(
-            attribute.startswith(prefix.replace("-", "_"))
-            for prefix in SPECIAL_PREFIXES
-        ):
-            attribute = attribute.replace("_", "-")
-
-        if attribute.split("_")[0] in ("xml", "xmlns", "xlink"):
-            attribute = attribute.replace("_", ":")
-
-        return attribute
-
-    @classmethod
-    def normalize_pair(
-        cls, attribute: str, value: str | bool
-    ) -> tuple[str, str | bool]:
-        attribute = cls.normalize_attribute(attribute)
-        if value is True:
-            value = attribute
-        return attribute, value
-
     def render(
-        self, indent: str = "  ", pretty: bool = True, xhtml: bool = False
+        self,
+        indent: str = "  ",
+        flags: RenderFlags = RenderFlags.PRETTY,
+        pretty: bool | None = None,
+        xhtml: bool | None = None,
     ) -> str:
-        stream = _RenderStream(indent, pretty, xhtml)
+        """Render this tree of tags to a string.
+
+        Parameters
+        ----------
+        indent: str, optional
+            String to use for indenting in `pretty` mode. Defaults to two spaces: `  `
+
+        """
+        if pretty is True:
+            flags |= RenderFlags.PRETTY
+        elif pretty is False:
+            flags &= ~RenderFlags.PRETTY
+        if xhtml is True:
+            flags |= RenderFlags.XHTML
+        elif xhtml is False:
+            flags &= ~RenderFlags.XHTML
+
+        stream = RenderStream(indent, flags)
+        _trace(f"_render {flags}")
         self._render(stream)
         return stream.getvalue()
 
     def __str__(self) -> str:
         return self.render()
 
-    def _render(self, stream: "_RenderStream") -> "_RenderStream":
-        pretty = stream.is_pretty and (Flags.PRETTY in self.flags)
+    def __html__(self) -> str:
+        return self.render()
 
+    def _render(self, stream: RenderStream) -> None:
+        pretty = stream.flags.is_pretty and self.flags.is_pretty
+
+        _trace("open <")
         stream.write("<")
         stream.write(self.name)
 
-        attributes = []
+        if self.attributes:
+            _trace(f"attributes {len(self.attributes)}")
+            stream.write(" ")
+            stream.write(self.attributes.render())
 
-        for attribute, value in self.attributes.items():
-            attribute, value = self.normalize_pair(attribute, value)
-            if value is False:
-                continue
-            if isinstance(value, str):
-                value = Markup.escape(value)
-            elif not isinstance(value, Markup):
-                value = Markup.escape(str(value))
-            attributes.append(f'{attribute}="{value}"')
-
-        stream.write(" ".join(attributes))
-
-        if Flags.SINGLE in self.flags and stream.xhtml:
+        if (self.flags & Flags.SINGLE) and (stream.flags & RenderFlags.XHTML):
+            _trace("open single xhtml />")
             stream.write(" />")
         else:
+            _trace("open tag >")
             stream.write(">")
 
-        if Flags.SINGLE in self.flags:
-            return stream
+        if self.flags & Flags.SINGLE:
+            return
 
         with stream.indented():
+            _trace(f"children: {len(self.children)}")
             inline = self._render_children(stream)
 
         if pretty and not inline:
             stream.newline()
+        _trace("close tag </ >")
         stream.write(f"</{self.name}>")
+        return
 
-        return stream
-
-    def _render_children(self, stream: "_RenderStream") -> bool:
+    def _render_children(self, stream: RenderStream) -> bool:
         inline = True
         for child in self.children:
-            if isinstance(child, self.__class__):
-                if stream.is_pretty and Flags.INLINE not in child.flags:
+            if isinstance(child, dom_tag):
+                if (
+                    RenderFlags.PRETTY in stream.flags
+                ) and Flags.INLINE not in child.flags:
+                    _trace("newline()")
                     inline = False
                     stream.newline()
+                _trace(f"_render {child.name}")
                 child._render(stream)
             elif isinstance(child, Markup):
+                _trace("write")
                 stream.write(child)
             else:
                 raise TypeError(f"Unsupported child type: {type(child)}")
@@ -232,30 +260,3 @@ class dom_tag:
                 parts.append(f"{len(self.children)} children")
 
         return "<" + " ".join(parts) + ">"
-
-
-@dc.dataclass
-class _RenderStream:
-    buffer: io.StringIO = dc.field(default=io.StringIO(), init=False)
-    current_indent: int = dc.field(default=0, init=False)
-    indent_text: str = "  "
-    xhtml: bool = False
-    is_pretty: bool = False
-
-    def write(self, text: str) -> None:
-        for i, line in enumerate(text.splitlines()):
-            if i:
-                self.newline()
-            self.buffer.write(line)
-
-    def newline(self) -> None:
-        self.buffer.write("\n" + self.indent_text * self.current_indent)
-
-    def getvalue(self) -> str:
-        return self.buffer.getvalue()
-
-    @contextlib.contextmanager
-    def indented(self) -> Iterator[None]:
-        self.current_indent += 1
-        yield
-        self.current_indent -= 1

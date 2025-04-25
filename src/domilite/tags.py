@@ -1,6 +1,5 @@
 from markupsafe import Markup
 
-from domilite.accessors import Classes
 from domilite.accessors import PrefixAccessor
 from domilite.dom_tag import dom_tag
 from domilite.dom_tag import Flags
@@ -8,10 +7,6 @@ from domilite.dom_tag import Flags
 
 class html_tag(dom_tag):
     """Any valid HTML tag"""
-
-    @property
-    def classes(self) -> Classes:
-        return Classes(self)
 
     data = PrefixAccessor("data")
     aria = PrefixAccessor("aria")
