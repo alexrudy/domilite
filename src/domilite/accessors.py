@@ -1,7 +1,7 @@
 import dataclasses as dc
 import weakref
 import itertools
-from collections.abc import Iterator
+from collections.abc import Iterator, Iterable
 from collections.abc import MutableMapping
 from collections.abc import MutableSet
 from typing import TYPE_CHECKING, Protocol, Self, overload
@@ -225,6 +225,7 @@ class Attributes(MutableMapping[str, str | bool], Generic[S]):
         return stream.getvalue()
 
     def _render(self, stream: RenderStream) -> None:
+        items: Iterable[tuple[str, str]]
         if self.classes:
             items = itertools.chain(self.attributes.items(), (("class", self.classes.render()),))
         else:

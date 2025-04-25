@@ -1,15 +1,15 @@
+import dataclasses as dc
 import contextlib
 import sys
 from collections.abc import Iterator
 from enum import auto
-from typing import TYPE_CHECKING, ClassVar
-from typing import overload, Self
+from typing import TYPE_CHECKING, ClassVar, Self, overload
 
 from markupsafe import Markup
 
-from .render import RenderFlags, RenderStream
-from .flags import Flag
 from .accessors import AttributesProperty
+from .flags import Flag
+from .render import RenderFlags, RenderStream
 
 if not TYPE_CHECKING and sys.version_info < (3, 5, 2):  # pragma: no cover
 
@@ -61,14 +61,16 @@ def normalize_name(name: str) -> str:
     return name
 
 
-class DomTagMeta(type):
-    @property
-    def name(self) -> str:
-        name = getattr(self, "__tagname__", self.__name__)
+@dc.dataclass(slots=True)
+class Name:
+    """pseudo-classproperty for accessing the .name attribute on both the type and instance."""
+
+    def __get__(self, instance: "dom_tag | None", owner: type["dom_tag"]) -> str:
+        name = getattr(owner, "__tagname__", owner.__name__)
         return normalize_name(name)
 
 
-class dom_tag(metaclass=DomTagMeta):
+class dom_tag:
     __slots__ = ("_attributes_inner", "children", "__weakref__")
 
     flags: ClassVar["Flags"] = Flags.PRETTY
@@ -76,15 +78,12 @@ class dom_tag(metaclass=DomTagMeta):
     attributes: AttributesProperty["dom_tag"] = AttributesProperty()
     classes = attributes.classes()
     children: list["dom_tag | Markup"]
+    name: Name = Name()
 
     def __init__(self, *args: "str | dom_tag | Markup", **kwargs: str | bool) -> None:
         self.attributes.update(kwargs)
         self.children = []
         self.add(*args)
-
-    @property
-    def name(self) -> str:
-        return type(self).name
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, dom_tag):
@@ -287,8 +286,8 @@ class dom_tag(metaclass=DomTagMeta):
 
         return "<" + " ".join(parts) + ">"
 
-    def descendants(self) -> Iterator["dom_tag"]:
+    def descendants(self) -> Iterator[Self]:
         for child in self.children:
-            if isinstance(child, dom_tag):
+            if isinstance(child, type(self)):
                 yield child
                 yield from child.descendants()
