@@ -39,17 +39,5 @@ jobs:
                   pip install -U wheel
                   pip install -U setuptools
                   python -m pip install -U pip
-            - name: cache pre-commit
-              uses: actions/cache@v3
-              with:
-                  path: ~/.cache/pre-commit
-                  key: pre-commit|${{ hashFiles('.pre-commit-config.yaml') }}
-              if: matrix.tox == 'style'
-            - name: cache mypy
-              uses: actions/cache@v3.0.3
-              with:
-                  path: ./.mypy_cache
-                  key: mypy|python-${{ matrix.python }}|${{ hashFiles('pyproject.toml') }}
-              if: matrix.tox == 'typing'
             - run: pip install tox
             - run: tox -e ${{ matrix.tox }}
