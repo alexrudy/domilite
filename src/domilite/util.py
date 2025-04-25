@@ -1,9 +1,9 @@
 from markupsafe import Markup
 
-from domilite.dom_tag import dom_tag
 from domilite.dom_tag import Flags
-from domilite.render import RenderStream
+from domilite.dom_tag import dom_tag
 from domilite.render import RenderFlags
+from domilite.render import RenderStream
 
 __all__ = ["container"]
 

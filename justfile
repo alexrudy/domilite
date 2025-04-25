@@ -15,8 +15,11 @@ alias tox := test-all
 lint:
     uvx ruff check
 
+isort:
+    uvx ruff check --select I --fix .
+
 # format code
-format:
+format: isort
     uvx ruff format
 
 # serve coverage report

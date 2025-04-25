@@ -1,17 +1,21 @@
 import dataclasses as dc
-import weakref
 import itertools
-from collections.abc import Iterator, Iterable
+import weakref
+from collections.abc import Iterable
+from collections.abc import Iterator
 from collections.abc import MutableMapping
 from collections.abc import MutableSet
-from typing import TYPE_CHECKING, Protocol, Self, overload
-from typing import TypeVar
+from collections.abc import Sequence
+from typing import ClassVar
 from typing import Generic
+from typing import Protocol
+from typing import Self
+from typing import TypeVar
+from typing import overload
 
-from domilite.render import RenderFlags, RenderStream, RenderParts
-
-if TYPE_CHECKING:
-    from .dom_tag import dom_tag
+from domilite.render import RenderFlags
+from domilite.render import RenderParts
+from domilite.render import RenderStream
 
 S = TypeVar("S")
 
@@ -48,7 +52,7 @@ class Classes(MutableSet[str], Generic[S]):
         self.classes.clear()
         return self._chain()
 
-    def _replace(self, classes: list[str]) -> None:
+    def _replace(self, classes: Sequence[str]) -> None:
         self.classes[:] = classes
 
     def replace(self, classes: str) -> S:
@@ -306,7 +310,11 @@ class _HasAttributes(Protocol):
     def attributes(self) -> MutableMapping[str, str | bool]: ...
 
 
-T = TypeVar("T", bound="dom_tag | _HasAttributes")
+class _HasAttributesProperty(Protocol):
+    attributes: ClassVar[AttributesProperty]
+
+
+T = TypeVar("T", bound="_HasAttributesProperty | _HasAttributes")
 
 
 @dc.dataclass(frozen=True)

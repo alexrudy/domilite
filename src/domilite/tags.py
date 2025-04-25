@@ -1,9 +1,9 @@
-from domilite.render import RenderStream
 from markupsafe import Markup
 
 from domilite.accessors import PrefixAccessor
-from domilite.dom_tag import dom_tag
 from domilite.dom_tag import Flags
+from domilite.dom_tag import dom_tag
+from domilite.render import RenderStream
 
 
 class html_tag(dom_tag):

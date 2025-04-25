@@ -1,5 +1,7 @@
 from collections.abc import Iterator
+
 import pytest
+
 from domilite.dom_tag import render_tracing
 
 

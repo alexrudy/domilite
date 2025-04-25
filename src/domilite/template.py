@@ -1,15 +1,20 @@
 import dataclasses as dc
+from collections.abc import Mapping
+from collections.abc import Sequence
 from typing import Any
+from typing import ClassVar
 from typing import Generic
 from typing import TypeVar
 
-from domilite.tags import html_tag
+from domilite.accessors import AttributesProperty
+from domilite.accessors import ClassesProperty
 from domilite.accessors import PrefixAccessor
+from domilite.tags import html_tag
 
 H = TypeVar("H", bound=html_tag)
 
 
-@dc.dataclass
+@dc.dataclass(init=False)
 class TagTemplate(Generic[H]):
     """A helper for creating tags.
 
@@ -21,15 +26,17 @@ class TagTemplate(Generic[H]):
     #: The tag type
     tag: type[H]
 
-    #: The classes to apply to the tag
-    classes: set[str] = dc.field(default_factory=set)
-
-    #: The attributes to apply to the tag
-    attributes: dict[str, str | bool] = dc.field(default_factory=dict)
+    attributes: ClassVar[AttributesProperty["TagTemplate"]] = AttributesProperty()
+    classes: ClassVar[ClassesProperty["TagTemplate"]] = attributes.classes()
 
     data: PrefixAccessor["TagTemplate"] = PrefixAccessor("data")
     aria: PrefixAccessor["TagTemplate"] = PrefixAccessor("aria")
     hx: PrefixAccessor["TagTemplate"] = PrefixAccessor("hx")
+
+    def __init__(self, tag: type[H], attributes: Mapping[str, str | bool], classes: Sequence[str]) -> None:
+        self.tag = tag
+        self.attributes.update(attributes)
+        self.classes.add(*classes)
 
     def __tag__(self) -> H:
         """Create a tag from the attributes and classes."""

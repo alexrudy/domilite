@@ -26,6 +26,9 @@ repos:
           - id: ruff
           # Run the formatter.
           - id: ruff-format
+          - id: ruff
+            name: ruff-sort-imports
+            args: [--select, I, --fix]
     - repo: https://github.com/asottile/pyupgrade
       rev: v3.15.2
       hooks:

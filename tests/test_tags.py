@@ -2,6 +2,7 @@
 
 import pytest
 from markupsafe import Markup
+
 from domilite import tags
 
 

@@ -1,7 +1,8 @@
-import enum
 import copy
+import enum
 from enum import auto
-from typing import Any, Self
+from typing import Any
+from typing import Self
 
 __all__ = ["auto", "Flag"]
 

@@ -1,10 +1,11 @@
-import io
-import dataclasses as dc
 import contextlib
+import dataclasses as dc
+import io
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
-from .flags import auto, Flag
+from .flags import Flag
+from .flags import auto
 
 if TYPE_CHECKING:
     from domilite.dom_tag import dom_tag  # noqa F401

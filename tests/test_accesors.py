@@ -1,15 +1,14 @@
-from collections.abc import Iterator
 import weakref
+from collections.abc import Iterator
+
 import pytest
 
+from domilite.accessors import Attributes
+from domilite.accessors import AttributesProperty
+from domilite.accessors import ChainedMethodError
+from domilite.accessors import Classes
+from domilite.accessors import ClassesProperty
 from domilite.dom_tag import dom_tag
-from domilite.accessors import (
-    Attributes,
-    AttributesProperty,
-    ClassesProperty,
-    ChainedMethodError,
-    Classes,
-)
 from domilite.tags import html_tag
 
 

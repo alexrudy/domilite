@@ -1,7 +1,8 @@
-from domilite.dom_tag import Flags, dom_tag
+import pytest
 from markupsafe import Markup
 
-import pytest
+from domilite.dom_tag import Flags
+from domilite.dom_tag import dom_tag
 
 pytestmark = pytest.mark.usefixtures("tracing")
 

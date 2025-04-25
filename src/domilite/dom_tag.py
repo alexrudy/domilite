@@ -1,15 +1,19 @@
-import dataclasses as dc
 import contextlib
+import dataclasses as dc
 import sys
 from collections.abc import Iterator
 from enum import auto
-from typing import TYPE_CHECKING, ClassVar, Self, overload
+from typing import TYPE_CHECKING
+from typing import ClassVar
+from typing import Self
+from typing import overload
 
 from markupsafe import Markup
 
 from .accessors import AttributesProperty
 from .flags import Flag
-from .render import RenderFlags, RenderStream
+from .render import RenderFlags
+from .render import RenderStream
 
 if not TYPE_CHECKING and sys.version_info < (3, 5, 2):  # pragma: no cover
 
@@ -75,7 +79,7 @@ class dom_tag:
 
     flags: ClassVar["Flags"] = Flags.PRETTY
 
-    attributes: AttributesProperty["dom_tag"] = AttributesProperty()
+    attributes: ClassVar[AttributesProperty["dom_tag"]] = AttributesProperty()
     classes = attributes.classes()
     children: list["dom_tag | Markup"]
     name: Name = Name()
