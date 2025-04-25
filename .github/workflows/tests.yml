@@ -29,8 +29,6 @@ jobs:
             - uses: actions/setup-python@v5
               with:
                   python-version: ${{ matrix.python }}
-                  cache: "pip"
-                  cache-dependency-path: "requirements/*.txt"
             - name: Install dot
               run: sudo apt-get install -y graphviz
               if: matrix.tox == 'docs'
