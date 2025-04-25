@@ -14,7 +14,7 @@ from domilite.tags import html_tag
 H = TypeVar("H", bound=html_tag)
 
 
-@dc.dataclass(init=False)
+@dc.dataclass(init=False, eq=False)
 class TagTemplate(Generic[H]):
     """A helper for creating tags.
 
@@ -41,6 +41,13 @@ class TagTemplate(Generic[H]):
             self.attributes.update(attributes)
         if classes is not None:
             self.classes.add(*classes)
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, html_tag):
+            return self.tag is type(other) and self.attributes == other.attributes
+        if isinstance(other, TagTemplate):
+            return self.tag is other.tag and self.attributes == other.attributes
+        return NotImplemented
 
     def __tag__(self) -> H:
         """Create a tag from the attributes and classes."""
