@@ -33,10 +33,14 @@ class TagTemplate(Generic[H]):
     aria: PrefixAccessor["TagTemplate"] = PrefixAccessor("aria")
     hx: PrefixAccessor["TagTemplate"] = PrefixAccessor("hx")
 
-    def __init__(self, tag: type[H], attributes: Mapping[str, str | bool], classes: Sequence[str]) -> None:
+    def __init__(
+        self, tag: type[H], attributes: Mapping[str, str | bool] | None = None, classes: Sequence[str] | None = None
+    ) -> None:
         self.tag = tag
-        self.attributes.update(attributes)
-        self.classes.add(*classes)
+        if attributes is not None:
+            self.attributes.update(attributes)
+        if classes is not None:
+            self.classes.add(*classes)
 
     def __tag__(self) -> H:
         """Create a tag from the attributes and classes."""
