@@ -60,7 +60,7 @@ class dom_tag:
 
     flags: ClassVar["Flags"] = Flags.PRETTY
 
-    attributes = AttributesProperty()
+    attributes: AttributesProperty["dom_tag"] = AttributesProperty()
     classes = attributes.classes()
     children: list["dom_tag | Markup"]
 

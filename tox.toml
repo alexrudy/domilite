@@ -1,6 +1,5 @@
-[tox]
-envlist = [
-    "py3{11,12}",
+env_list = [
+    "py311",
     "coverage",
     "style",
     "typing",
@@ -21,13 +20,15 @@ commands = [
 ]
 
 [env.coverage]
-depends = "py3{11,12}"
+depends = ["py311", "py312"]
 runner = "uv-venv-lock-runner"
 dependency_groups = ["tests"]
 commands = [["coverage", "report", "--fail-under=90", "--skip-covered"]]
 
 [env.style]
+dependency_groups = []
 deps = ["pre-commit"]
+runner = "virtualenv"
 skip_install = true
 commands = [["pre-commit", "run", "--all-files", "--show-diff-on-failure"]]
 

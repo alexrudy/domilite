@@ -4,10 +4,12 @@ import itertools
 from collections.abc import Iterator
 from collections.abc import MutableMapping
 from collections.abc import MutableSet
-from typing import Protocol, Self, overload
+from typing import TYPE_CHECKING, Protocol, Self, overload
 from typing import TypeVar
 from typing import Generic
 
+if TYPE_CHECKING:
+    from .dom_tag import dom_tag
 
 S = TypeVar("S")
 
@@ -289,10 +291,11 @@ class ClassesProperty(Generic[S]):
 
 
 class _HasAttributes(Protocol):
-    attributes: Attributes
+    @property
+    def attributes(self) -> MutableMapping[str, str | bool]: ...
 
 
-T = TypeVar("T", bound=_HasAttributes)
+T = TypeVar("T", bound="dom_tag | _HasAttributes")
 
 
 @dc.dataclass(frozen=True, slots=True)

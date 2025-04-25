@@ -14,9 +14,6 @@ repos:
             language_version: python3
           - id: end-of-file-fixer
             language_version: python3
-          - id: fix-encoding-pragma
-            language_version: python3
-            args: [--remove]
           - id: check-yaml
             language_version: python3
           - id: debug-statements

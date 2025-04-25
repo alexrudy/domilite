@@ -8,9 +8,9 @@ from domilite.dom_tag import Flags
 class html_tag(dom_tag):
     """Any valid HTML tag"""
 
-    data = PrefixAccessor("data")
-    aria = PrefixAccessor("aria")
-    hx = PrefixAccessor("hx")
+    data: PrefixAccessor["html_tag"] = PrefixAccessor("data")
+    aria: PrefixAccessor["html_tag"] = PrefixAccessor("aria")
+    hx: PrefixAccessor["html_tag"] = PrefixAccessor("hx")
 
 
 class html(html_tag):
