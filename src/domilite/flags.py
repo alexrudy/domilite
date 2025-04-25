@@ -1,5 +1,8 @@
 import enum
+from enum import auto
 from typing import Any
+
+__all__ = ["auto", "Flag"]
 
 
 class Flag(enum.Flag):
