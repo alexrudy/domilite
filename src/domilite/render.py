@@ -10,10 +10,22 @@ from .flags import auto
 if TYPE_CHECKING:
     from domilite.dom_tag import dom_tag  # noqa F401
 
+__all__ = ["RenderFlags"]
+
 
 class RenderFlags(Flag):
+    """Settings for rendering tags"""
+
+    #: Render tags with indentation across multiple lines.
     PRETTY = auto()
+
+    #: Use XHTML semantics.
     XHTML = auto()
+
+
+class ContextFlags(Flag):
+    #: Currently rendering a comment, don't render sub-comments
+    COMMENT = auto()
 
 
 @dc.dataclass
@@ -22,6 +34,7 @@ class RenderStream:
     current_indent: int = dc.field(default=0, init=False)
     indent_text: str = "  "
     flags: RenderFlags = RenderFlags(0)
+    context: ContextFlags = ContextFlags(0)
 
     def write(self, text: str) -> None:
         for i, line in enumerate(text.splitlines()):
@@ -40,6 +53,15 @@ class RenderStream:
         self.current_indent += 1
         yield
         self.current_indent -= 1
+
+    @contextlib.contextmanager
+    def comment(self) -> Iterator[None]:
+        is_comment = self.context & ContextFlags.COMMENT
+
+        self.context |= ContextFlags.COMMENT
+        yield
+        if not is_comment:
+            self.context &= ~ContextFlags.COMMENT
 
     @contextlib.contextmanager
     def parts(self, joiner: str = " ") -> Iterator["RenderParts"]:

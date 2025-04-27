@@ -1,6 +1,5 @@
 """Test specific HTML tags"""
 
-import pytest
 from markupsafe import Markup
 
 from domilite import tags
@@ -20,10 +19,12 @@ def test_comment_tag():
 
     assert comment.render() == "<!--hello\n  <div>world</div>\n-->"
 
+    comment = tags.comment("goodbye")
+    assert comment.render() == "<!--goodbye-->"
+
 
 def test_comment_nesting():
     comment = tags.comment("hello", tags.div("world"))
     comment.add(tags.comment("child"))
 
-    with pytest.raises(ValueError):
-        comment.render()
+    assert comment.render() == "<!--hello\n  <div>world</div>\n  child\n-->"

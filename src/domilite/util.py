@@ -5,7 +5,7 @@ from domilite.dom_tag import dom_tag
 from domilite.render import RenderFlags
 from domilite.render import RenderStream
 
-__all__ = ["container"]
+__all__ = ["container", "text"]
 
 
 class container(dom_tag):

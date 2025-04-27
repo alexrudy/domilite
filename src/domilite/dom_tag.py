@@ -15,6 +15,8 @@ from .flags import Flag
 from .render import RenderFlags
 from .render import RenderStream
 
+__all__ = ["dom_tag", "Flags"]
+
 if not TYPE_CHECKING and sys.version_info < (3, 5, 2):  # pragma: no cover
 
     def overload(f):
@@ -22,8 +24,17 @@ if not TYPE_CHECKING and sys.version_info < (3, 5, 2):  # pragma: no cover
 
 
 class Flags(Flag):
+    """
+    Set rendering properties of individual tags
+    """
+
+    #: This tag is self-closing
     SINGLE = auto()
+
+    #: This tag should have formatted content rendered with indentation
     PRETTY = auto()
+
+    #: When possible, this tag should be shown inline with thte parent tag.
     INLINE = auto()
 
 
@@ -49,6 +60,9 @@ _trace = _trace_noop
 
 @contextlib.contextmanager
 def render_tracing() -> Iterator[None]:
+    """This is a helper function to show log messages
+    when rendering elements
+    """
     global _trace
     try:
         _trace = _trace_live
@@ -75,13 +89,35 @@ class Name:
 
 
 class dom_tag:
+    """
+    Base class for any tag object.
+
+    Subclass this to create custom tags.
+
+    Parameters
+    ----------
+    `*args`: string or tag
+        Provide child tags, which will be added via :meth:`add`
+    `**kwargs`: string or bool
+        Provide attribute values, which will be added to :attr:`attributes`
+
+    """
+
     __slots__ = ("_attributes_inner", "children", "__weakref__")
 
+    #: Rendering flags for this tag.
     flags: ClassVar["Flags"] = Flags.PRETTY
 
+    #: The attributes associated with this tag. See :class:`~domilite.accessors.Attributes` for more details.
     attributes: ClassVar[AttributesProperty["dom_tag"]] = AttributesProperty()
+
+    #: The (HTML) classes associated with this tag, managed as a set of strings. See :class:`~domilite.accessors.Classes` for more details.
     classes = attributes.classes()
+
+    #: The list of child tags or markup objects
     children: list["dom_tag | Markup"]
+
+    #: The name of this tag, inferred from the name of the class
     name: Name = Name()
 
     def __init__(self, *args: "str | dom_tag | Markup", **kwargs: str | bool) -> None:
@@ -97,6 +133,7 @@ class dom_tag:
 
     @classmethod
     def find_tag_type(cls, name: str) -> type[Self] | None:
+        """Find a particular subclass of this tag with a given name."""
         normalized = normalize_name(name)
         for scls in cls.iter_subclasses():
             if scls.name == normalized:
@@ -105,23 +142,57 @@ class dom_tag:
 
     @classmethod
     def iter_subclasses(cls) -> Iterator[type[Self]]:
+        """Iterate through all known subclasses of this tag, recursively."""
         yield cls
         for scls in cls.__subclasses__():
             yield scls
             yield from scls.iter_subclasses()
 
-    def add(self, *children: "dom_tag | str | Markup") -> "dom_tag":
+    def add(self, *children: "dom_tag | str | Markup") -> Self:
+        """Add child tags to this tag.
+
+        Parameters
+        ----------
+        children: tag, string, or Markup
+            Tags become children, strings are escaped, and Markup is
+            text that is added raw to this tag.
+
+        Returns
+        -------
+        self: this tag, to facilitate method chaining
+
+        """
         for child in children:
             if isinstance(child, str):
                 child = Markup.escape(child)
             self.children.append(child)
         return self
 
-    def remove(self, child: "dom_tag | Markup") -> "dom_tag":
+    def remove(self, child: "dom_tag | Markup") -> Self:
+        """
+        Remove a particular child. If you are removing a string,
+        escape it first with :meth:`Markup.escape`.
+
+        Parameters
+        ----------
+        child: tag or Markup
+            Child to remove. If it doesn't exist, an error will be raised.
+
+        Returns
+        -------
+        self: this tag, to facilitate method chaining
+        """
         self.children.remove(child)
         return self
 
-    def clear(self) -> "dom_tag":
+    def clear(self) -> Self:
+        """Remove all chilren.
+
+        Returns
+        -------
+        self: this tag, to facilitate method chaining
+
+        """
         self.children.clear()
         return self
 
@@ -210,6 +281,12 @@ class dom_tag:
         ----------
         indent: str, optional
             String to use for indenting in `pretty` mode. Defaults to two spaces: `  `
+        flags: :class:`~domilite.render.RenderFlags`
+            Adjust the rendering properties to use (e.g. turn off PRETTY)
+        pretty: bool or None
+            Explicitly enable or disable pretty rendering.
+        xhtml: bool or None
+            Explicitly enable or disable xhtml rendering.
 
         """
         flags = flags.with_arguments(pretty=pretty, xhtml=xhtml)
@@ -290,8 +367,9 @@ class dom_tag:
 
         return "<" + " ".join(parts) + ">"
 
-    def descendants(self) -> Iterator[Self]:
+    def descendants(self) -> Iterator["dom_tag"]:
+        """Iterate over all children and children of children recursively."""
         for child in self.children:
-            if isinstance(child, type(self)):
+            if isinstance(child, dom_tag):
                 yield child
                 yield from child.descendants()

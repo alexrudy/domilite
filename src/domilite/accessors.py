@@ -1,11 +1,11 @@
 import dataclasses as dc
 import itertools
+import re
 import weakref
 from collections.abc import Iterable
 from collections.abc import Iterator
 from collections.abc import MutableMapping
 from collections.abc import MutableSet
-from collections.abc import Sequence
 from typing import ClassVar
 from typing import Generic
 from typing import Protocol
@@ -17,9 +17,20 @@ from domilite.render import RenderFlags
 from domilite.render import RenderParts
 from domilite.render import RenderStream
 
+__all__ = [
+    "ChainedMethodError",
+    "Classes",
+    "ClassesProperty",
+    "Attributes",
+    "AttributesProperty",
+    "PrefixAccessor",
+    "PrefixAccess",
+]
+
 S = TypeVar("S")
 
 SPECIAL_PREFIXES = {"data", "aria", "role"}
+WHITESPACE = re.compile(r"[\s]+")
 
 
 class ChainedMethodError(TypeError):
@@ -28,102 +39,152 @@ class ChainedMethodError(TypeError):
 
 @dc.dataclass(frozen=True, slots=True, repr=False)
 class Classes(MutableSet[str], Generic[S]):
-    """A helper for manipulating the class attribute on a tag."""
+    """
+    A set-like helper for manipulating the class attribute on a tag.
 
-    tag: weakref.ReferenceType[S] = dc.field(compare=False, hash=False)
-    classes: list[str] = dc.field(default_factory=list, init=False)
+    This provides set methods and set interaction, but also correctly
+    maintains and renders the whitespace delimited `class` attribute
+    for an associated tag.
+    """
+
+    _tag: weakref.ReferenceType[S] = dc.field(compare=False, hash=False)
+    _classes: list[str] = dc.field(default_factory=list, init=False)
 
     def __contains__(self, cls: object) -> bool:
-        return cls in self.classes
+        return cls in self._classes
 
     def __iter__(self) -> Iterator[str]:
-        return iter(self.classes)
+        return iter(self._classes)
 
     def __len__(self) -> int:
-        return len(self.classes)
+        return len(self._classes)
 
     def _chain(self) -> S:
-        tag = self.tag()
+        tag = self._tag()
         if tag is not None:
             return tag
         raise ChainedMethodError("method chaining is unavailable, underlying instance is missing")
 
+    def _validate(self, item: str) -> str:
+        if (found := re.search(WHITESPACE, item)) is not None:
+            raise ValueError(f"Class names cannot contain whitespace. Got: {item!r} {found!r}")
+        return item
+
     def clear(self) -> S:  # type: ignore[override]
-        self.classes.clear()
+        self._classes.clear()
         return self._chain()
 
-    def _replace(self, classes: Sequence[str]) -> None:
-        self.classes[:] = classes
+    def _replace(self, classes: Iterable[str]) -> None:
+        self._classes[:] = [self._validate(item) for item in classes]
 
-    def replace(self, classes: str) -> S:
-        self._replace(classes.split())
+    def replace(self, *classes: str) -> S:
+        """Replace a specific class.
+
+        Returns the tag. This is useful for chaining methods on a tag.
+        """
+        self._replace(classes)
         return self._chain()
 
     def render(self) -> str:
-        return " ".join(self.classes)
+        """Render the classes as a whitespace-separated string"""
+        return " ".join(self._classes)
 
     def __str__(self) -> str:
         return self.render()
 
     def __repr__(self) -> str:
-        if not self.classes:
+        if not self._classes:
             return "{}"
         parts = ["{"]
-        parts.append(", ".join(repr(item) for item in self.classes))
+        parts.append(", ".join(repr(item) for item in self._classes))
         parts.append("}")
         return " ".join(parts)
 
     def add(self, *classes: str) -> S:  # type: ignore[override]
-        """Add classes to the tag."""
-        current: list[str] = self.classes
+        """Add classes to the tag.
+
+        Returns the tag. This is useful for chaining methods on a tag.
+        """
         for cls in classes:
-            if cls not in current:
-                current.append(cls)
+            cls = self._validate(cls)
+            if cls not in self._classes:
+                self._classes.append(cls)
         return self._chain()
 
     def remove(self, value: str) -> S:  # type: ignore[override]
-        """Remove element elem from the set. Raises KeyError if elem is not contained in the set."""
-        if value in self.classes:
-            self.classes.remove(value)
+        """Remove element elem from the set. Raises KeyError if elem is not contained in the set.
+
+        Returns the tag. This is useful for chaining methods on a tag.
+        """
+        value = self._validate(value)
+        if value in self._classes:
+            self._classes.remove(value)
         else:
             raise KeyError(f"Class '{value}' not found")
         return self._chain()
 
     def discard(self, value: str) -> S:  # type: ignore[override]
-        """Remove class value from the set if it is present."""
-        if value in self.classes:
-            self.classes.remove(value)
+        """Remove class value from the set if it is present.
+
+        Returns the tag. This is useful for chaining methods on a tag.
+        """
+        value = self._validate(value)
+        if value in self._classes:
+            self._classes.remove(value)
         return self._chain()
 
     def swap(self, old: str, new: str) -> S:
-        """Swap one class for another."""
-        if old in self.classes:
-            self.classes.remove(old)
-        if new not in self.classes:
-            self.classes.append(new)
+        """Swap one class for another.
+
+        Returns the tag. This is useful for chaining methods on a tag."""
+        old = self._validate(old)
+        new = self._validate(new)
+
+        if old in self._classes:
+            self._classes.remove(old)
+        if new not in self._classes:
+            self._classes.append(new)
         return self._chain()
 
 
 @dc.dataclass(repr=False, frozen=True, slots=True)
 class Attributes(MutableMapping[str, str | bool], Generic[S]):
-    tag: weakref.ReferenceType[S] = dc.field(compare=False, hash=False)
-    attributes: dict[str, str] = dc.field(default_factory=dict, init=False)
+    """Provides a dictionary interface to DOM element attributes.
+
+    This interface also transparently forwards interactions with `class`
+    to the `classes` object, so that classes can be managed as a set of
+    strings.
+
+    The attributes interface normalizes attribute names, transparently handles
+    boolean attributes appropriately, and can render attributes to a string.
+
+    This object should not be constructed individually, rather it should be
+    accessed from the :attr:`~domilite.dom_tag.dom_tag.attributes` attribute of
+    :class:`~domilite.dom_tag.dom_tag`"""
+
+    _tag: weakref.ReferenceType[S] = dc.field(compare=False, hash=False)
+    _attributes: dict[str, str] = dc.field(default_factory=dict, init=False)
+
+    #: Access to the `class` attribute as a set of strings.
     classes: Classes[S] = dc.field(init=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "classes", Classes(self.tag))
+        object.__setattr__(self, "classes", Classes(self._tag))
 
     @classmethod
     def from_tag(cls, tag: S) -> Self:
+        """Construct an Attributes object from a tag object. Attributes
+        retains a weak reference to the underlying tag."""
         return cls(weakref.ref(tag))
 
     def _chain(self) -> S:
-        tag = self.tag()
+        tag = self._tag()
         if tag is not None:
             return tag
         raise ChainedMethodError("method chaining is unavailable, underlying instance is missing")
 
     def normalize_attribute(self, attribute: str) -> str:
+        """Normalize the name of an attribute."""
         # Shorthand notation
         attribute = {
             "cls": "class",
@@ -152,12 +213,16 @@ class Attributes(MutableMapping[str, str | bool], Generic[S]):
         if attribute.split("_")[0] in ("xml", "xmlns", "xlink"):
             attribute = attribute.replace("_", ":")
 
-        if (tag := self.tag()) is not None and (normalize := getattr(tag, "normalize_attribute", None)) is not None:
+        if (tag := self._tag()) is not None and (normalize := getattr(tag, "normalize_attribute", None)) is not None:
             attribute = normalize(attribute)
 
         return attribute
 
     def normalize_pair(self, attribute: str, value: str | bool) -> tuple[str, str | None]:
+        """Normalize the name and value of an attribute, handling boolean values appropriately.
+
+        Returning a value of `None` indicates that the attribute should be removed.
+        """
         attribute = self.normalize_attribute(attribute)
         if value is True:
             value = attribute
@@ -171,7 +236,7 @@ class Attributes(MutableMapping[str, str | bool], Generic[S]):
             return " ".join(self.classes)
 
         try:
-            value = self.attributes[name]
+            value = self._attributes[name]
         except KeyError:
             raise KeyError(key) from None
 
@@ -186,54 +251,71 @@ class Attributes(MutableMapping[str, str | bool], Generic[S]):
             if normalized is None:
                 self.classes.clear()
             else:
-                self.classes.replace(normalized)
+                self.classes.replace(*normalized.split())
             return
 
         if normalized is None:
-            self.attributes.pop(name, None)
+            self._attributes.pop(name, None)
         else:
-            self.attributes[name] = normalized
+            self._attributes[name] = normalized
 
     def __delitem__(self, key: str, /) -> None:
         name = self.normalize_attribute(key)
         if name == "class":
             self.classes.clear()
         else:
-            del self.attributes[name]
+            del self._attributes[name]
 
     def __iter__(self) -> Iterator[str]:
         if self.classes:
-            return itertools.chain(iter(self.attributes), itertools.repeat("class", 1))
-        return iter(self.attributes)
+            return itertools.chain(iter(self._attributes), itertools.repeat("class", 1))
+        return iter(self._attributes)
 
     def __len__(self) -> int:
         if self.classes:
-            return len(self.attributes) + 1
-        return len(self.attributes)
+            return len(self._attributes) + 1
+        return len(self._attributes)
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, dict):
-            return {**self.attributes, "class": " ".join(self.classes)} == other
+            return {**self._attributes, "class": " ".join(self.classes)} == other
 
         if not isinstance(other, Attributes):
             return NotImplemented
 
-        return self.attributes == other.attributes and self.classes == other.classes
+        return self._attributes == other._attributes and self.classes == other.classes
 
     def render(
-        self, flags: RenderFlags = RenderFlags.PRETTY, pretty: bool | None = None, xhtml: bool | None = None
+        self,
+        indent: str = "  ",
+        flags: RenderFlags = RenderFlags.PRETTY,
+        pretty: bool | None = None,
+        xhtml: bool | None = None,
     ) -> str:
-        flags = flags.with_arguments(pretty=pretty, xhtml=xhtml)
-        stream = RenderStream()
+        """Render the attributes as a string.
+
+        Parameters
+        ----------
+        indent: str, optional
+            String to use for indenting in `pretty` mode. Defaults to two spaces: `  `
+        flags: :class:`~domilite.render.RenderFlags`
+            Adjust the rendering properties to use (e.g. turn off PRETTY)
+        pretty: bool or None
+            Explicitly enable or disable pretty rendering.
+        xhtml: bool or None
+            Explicitly enable or disable xhtml rendering.
+
+        """
+        stream = RenderStream(indent_text=indent, flags=flags.with_arguments(pretty=pretty, xhtml=xhtml))
         self._render(stream)
         return stream.getvalue()
 
     def _render(self, stream: RenderStream) -> None:
         items: Iterable[tuple[str, str]]
         if self.classes:
-            items = itertools.chain(self.attributes.items(), (("class", self.classes.render()),))
+            items = itertools.chain(self._attributes.items(), (("class", self.classes.render()),))
         else:
-            items = self.attributes.items()
+            items = self._attributes.items()
 
         with stream.parts() as parts:
             for name, value in sorted(items):
@@ -246,10 +328,18 @@ class Attributes(MutableMapping[str, str | bool], Generic[S]):
             parts.append(f'{name}="{value}"')
 
     def set(self, key: str, value: str | bool) -> S:
+        """Set an attribute to a value, and return the underlying tag.
+
+        This is useful for chaining methods on a tag.
+        """
         self[key] = value
         return self._chain()
 
     def delete(self, key: str) -> S:
+        """Delete an attribute and return the underlying tag.
+
+        This is useful for chaining methods on a tag.
+        """
         del self[key]
         return self._chain()
 
@@ -259,12 +349,14 @@ class Attributes(MutableMapping[str, str | bool], Generic[S]):
 
 @dc.dataclass()
 class AttributesProperty(Generic[S]):
-    name: str | None = dc.field(default=None, init=False)
-    attribute: str | None = dc.field(default=None, init=False)
+    """Property access to :class:`Attributes`"""
+
+    _name: str | None = dc.field(default=None, init=False)
+    _attribute: str | None = dc.field(default=None, init=False)
 
     def __set_name__(self, owner: type[S], name: str) -> None:
-        self.name = name
-        self.attribute = f"_{self.name}_inner"
+        self._name = name
+        self._attribute = f"_{self._name}_inner"
 
     @overload
     def __get__(self, instance: S, owner: type[S] | None = None) -> "Attributes[S]": ...
@@ -275,11 +367,11 @@ class AttributesProperty(Generic[S]):
     def __get__(self, instance: S | None, owner: type[S] | None = None) -> "Attributes[S] | Self":
         if instance is None:
             return self
-        assert isinstance(self.attribute, str), "Accessing attributes before __set_name__ was called"
-        if (attributes := getattr(instance, self.attribute, None)) is not None:
+        assert isinstance(self._attribute, str), "Accessing attributes before __set_name__ was called"
+        if (attributes := getattr(instance, self._attribute, None)) is not None:
             return attributes
         attributes = Attributes.from_tag(instance)
-        setattr(instance, self.attribute, attributes)
+        setattr(instance, self._attribute, attributes)
         return attributes
 
     def classes(self) -> "ClassesProperty":
@@ -288,7 +380,9 @@ class AttributesProperty(Generic[S]):
 
 @dc.dataclass()
 class ClassesProperty(Generic[S]):
-    attributes: weakref.ReferenceType[AttributesProperty[S]]
+    """Property access to :class:`Classes`"""
+
+    _attributes: weakref.ReferenceType[AttributesProperty[S]]
 
     @overload
     def __get__(self, instance: S, owner: type[S]) -> "Classes[S]": ...
@@ -299,7 +393,7 @@ class ClassesProperty(Generic[S]):
     def __get__(self, instance: S | None, owner: type[S]) -> "Classes[S] | Self":
         if instance is None:
             return self
-        attributes = self.attributes()
+        attributes = self._attributes()
         if attributes is None:
             raise ValueError("Attributes has been garbage collected")
         return attributes.__get__(instance, owner).classes
@@ -319,17 +413,34 @@ T = TypeVar("T", bound="_HasAttributesProperty | _HasAttributes")
 
 @dc.dataclass(frozen=True)
 class PrefixAccessor(Generic[T]):
-    """A helper for accessing attributes with a prefix."""
+    """A helper property for accessing attributes with a prefix.
+
+    See :class:`PrefixAccess`"""
 
     #: Attribute prefix
     prefix: str
 
-    def __get__(self, instance: T, owner: type[T]) -> "PrefixAccess":
+    @overload
+    def __get__(self, instance: T, owner: type[T]) -> "PrefixAccess": ...
+
+    @overload
+    def __get__(self, instance: None, owner: type[T]) -> "Self": ...
+
+    def __get__(self, instance: T | None, owner: type[T]) -> "PrefixAccess | Self":
+        if instance is None:
+            return self
         return PrefixAccess(self.prefix, instance)
 
 
 @dc.dataclass(frozen=True, slots=True)
 class PrefixAccess(MutableMapping[str, str | bool], Generic[T]):
+    """Provide access to attributes automatically prefixed with some value.
+
+    For example, a prefix accessor for `aria` provides access to keys like `current-page`
+    which when rendered will be rendered as `aria-current-page`.
+
+    """
+
     #: Attribute prefix
     prefix: str
 
@@ -354,11 +465,17 @@ class PrefixAccess(MutableMapping[str, str | bool], Generic[T]):
         return sum(1 for _ in self)
 
     def set(self, name: str, value: str | bool) -> T:
-        """Set an attribute with the given name."""
+        """Set an attribute with the given name.
+
+        This is useful for chaining methods on a tag.
+        """
         self[name] = value
         return self.tag
 
     def remove(self, name: str) -> T:
-        """Remove an attribute with the given name."""
+        """Remove an attribute with the given name.
+
+        This is useful for chaining methods on a tag.
+        """
         del self[name]
         return self.tag

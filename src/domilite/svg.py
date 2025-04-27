@@ -1,6 +1,41 @@
 from domilite.dom_tag import Flags
 from domilite.tags import html_tag
 
+__all__ = [
+    "svg_tag",
+    "svg",
+    "animate",
+    "animateMotion",
+    "animateTransform",
+    "circle",
+    "clipPath",
+    "defs",
+    "desc",
+    "ellipse",
+    "g",
+    "image",
+    "line",
+    "linearGradient",
+    "marker",
+    "mask",
+    "mpath",
+    "pattern",
+    "polygon",
+    "radialGradient",
+    "path",
+    "rect",
+    "stop",
+    "switch",
+    "symbol",
+    "text",
+    "textPath",
+    "title",
+    "tspan",
+    "use",
+    "view",
+    "filter",
+]
+
 DASHED_ATTRIBUTES = {
     "accent",
     "alignment",

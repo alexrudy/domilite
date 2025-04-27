@@ -9,9 +9,11 @@ from typing import TypeVar
 from domilite.accessors import AttributesProperty
 from domilite.accessors import ClassesProperty
 from domilite.accessors import PrefixAccessor
-from domilite.tags import html_tag
+from domilite.dom_tag import dom_tag
 
-H = TypeVar("H", bound=html_tag)
+__all__ = ["TagTemplate"]
+
+H = TypeVar("H", bound=dom_tag)
 
 
 @dc.dataclass(init=False, eq=False)
@@ -43,7 +45,7 @@ class TagTemplate(Generic[H]):
             self.classes.add(*classes)
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, html_tag):
+        if isinstance(other, dom_tag):
             return self.tag is type(other) and self.attributes == other.attributes
         if isinstance(other, TagTemplate):
             return self.tag is other.tag and self.attributes == other.attributes

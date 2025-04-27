@@ -8,6 +8,7 @@ from domilite.accessors import AttributesProperty
 from domilite.accessors import ChainedMethodError
 from domilite.accessors import Classes
 from domilite.accessors import ClassesProperty
+from domilite.accessors import PrefixAccessor
 from domilite.dom_tag import dom_tag
 from domilite.tags import html_tag
 
@@ -41,7 +42,7 @@ def classes(tag: dom_tag):
 
 
 def test_classes_remove_replace(classes: Classes):
-    assert classes.replace(" ".join(["one", "two", "three"]))
+    assert classes.replace(*["one", "two", "three"])
 
     assert classes.render() == "one two three"
     classes.add("four")
@@ -254,3 +255,5 @@ def test_prefix_accessor(html: html_tag) -> None:
 
     html.hx.set("foo", "bar").hx.remove("bar")
     assert set(html.hx) == {"foo"}
+
+    assert isinstance(type(html).hx, PrefixAccessor)

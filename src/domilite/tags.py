@@ -5,6 +5,120 @@ from domilite.dom_tag import Flags
 from domilite.dom_tag import dom_tag
 from domilite.render import RenderStream
 
+__all__ = [
+    "html_tag",
+    "html",
+    "head",
+    "title",
+    "base",
+    "link",
+    "meta",
+    "style",
+    "script",
+    "noscript",
+    "body",
+    "main",
+    "section",
+    "nav",
+    "article",
+    "aside",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "hgroup",
+    "header",
+    "address",
+    "p",
+    "hr",
+    "pre",
+    "blockquote",
+    "ol",
+    "ul",
+    "li",
+    "dl",
+    "dt",
+    "dd",
+    "figure",
+    "figcaption",
+    "div",
+    "a",
+    "em",
+    "strong",
+    "small",
+    "s",
+    "cite",
+    "q",
+    "dfn",
+    "abbr",
+    "time",
+    "code",
+    "var",
+    "samp",
+    "kbd",
+    "sub",
+    "sup",
+    "i",
+    "b",
+    "u",
+    "mark",
+    "ruby",
+    "rt",
+    "rp",
+    "bdi",
+    "bdo",
+    "span",
+    "br",
+    "wbr",
+    "ins",
+    "del_",
+    "img",
+    "iframe",
+    "embed",
+    "object",
+    "param",
+    "video",
+    "audio",
+    "source",
+    "track",
+    "canvas",
+    "map",
+    "area",
+    "table",
+    "caption",
+    "colgroup",
+    "col",
+    "tbody",
+    "thead",
+    "tfoot",
+    "th",
+    "tr",
+    "td",
+    "form",
+    "fieldset",
+    "legend",
+    "label",
+    "input",
+    "button",
+    "select",
+    "datalist",
+    "option",
+    "optgroup",
+    "textarea",
+    "keygen",
+    "output",
+    "progress",
+    "meter",
+    "details",
+    "summary",
+    "command",
+    "menu",
+    "font",
+    "comment",
+]
+
 
 class html_tag(dom_tag):
     """Any valid HTML tag"""
@@ -25,7 +139,7 @@ class head(html_tag):
 class title(html_tag):
     """The <title> HTML element defines the document's title that is shown in a browser's title bar or a page's tab. It only contains text; tags within the element are ignored."""
 
-    flags = Flags.SINGLE | Flags.PRETTY
+    flags = Flags.INLINE | Flags.PRETTY
 
     @property
     def text(self) -> str:
@@ -504,14 +618,14 @@ class comment(html_tag):
     """Adds HTML comments."""
 
     def _render(self, stream: "RenderStream") -> None:
-        if any(isinstance(decendant, comment) for decendant in self.descendants()):
-            raise ValueError("HTML comments <!-- may not be nested")
+        if not stream.context.is_comment:
+            stream.write("<!--")
 
-        stream.write("<!--")
-
-        with stream.indented():
+        with stream.comment(), stream.indented():
             inline = self._render_children(stream)
 
         if not inline:
             stream.newline()
-        stream.write("-->")
+
+        if not stream.context.is_comment:
+            stream.write("-->")
