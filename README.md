@@ -1,5 +1,10 @@
 # Domilite
 
+[![PyPI - Version](https://img.shields.io/pypi/v/domilite.svg)](https://pypi.org/project/domilite)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/domilite.svg)](https://pypi.org/project/domilite)
+[![Tests](https://github.com/alexrudy/domilite/workflows/Tests/badge.svg)](https://github.com/alexrudy/domilite/workflows/Tests/)
+[![Docs](https://img.shields.io/readthedocs/domilite)](https://domilite.readthedocs.io/en/latest/)
+
 [Domilite][] is a lightweight (0-dependency) Python library for creating and manipulating HTML elements.
 
 It takes inspiration from [dominate][], a great library for creating HTML elements in Python. Domilite aims to simplify the interface from [dominate][], providing a smaller set of APIs while maintaining general compatibility with the library.
