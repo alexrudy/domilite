@@ -1,6 +1,6 @@
 # Domilite
 
-Domilite is a lightweight (0-dependency) Python library for creating and manipulating HTML elements.
+[Domilite][] is a lightweight (0-dependency) Python library for creating and manipulating HTML elements.
 
 It takes inspiration from [dominate][], a great library for creating HTML elements in Python. Domilite aims to simplify the interface from [dominate][], providing a smaller set of APIs while maintaining general compatibility with the library.
 
@@ -25,5 +25,7 @@ This produces
 </html>
 ```
 
+You can find the docs at <https://domilite.readthedocs.io/en/latest/>
 
 [dominate]: https://github.com/Knio/dominate
+[Domilite]: https://domilite.readthedocs.io/en/latest/
