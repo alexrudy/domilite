@@ -1,20 +1,25 @@
+#!/usr/bin/env -S just --justfile
 
 # Run tests
 test:
     uv run --group tests pytest
 
-alias t:= test
+alias t := test
 
 # Run tox
-test-all:
+tox:
     uv run --group tox tox -p auto
 
-alias tox := test-all
+alias test-all := tox
 
 # run the ruff linter
 lint:
     uvx ruff check
 
+alias check := lint
+alias ruff := lint
+
+# sort imports using ruff
 isort:
     uvx ruff check --select I --fix .
 
@@ -25,15 +30,16 @@ format: isort
 alias fmt := format
 
 # serve coverage report
-htmlcov:
-    uv run python -m http.server --directory=htmlcov/ 8082
+htmlcov PORT="8082":
+    uv run python -m http.server --directory=htmlcov/ {{PORT}}
 
 # Build docs
 docs:
     cd docs && make html
 
-docs-serve:
-    uv run python -m http.server --directory=docs/build/html/ 8083
+# serve documentation with
+docs-serve PORT="8083":
+    uv run python -m http.server --directory=docs/build/html/ {{PORT}}
 
 # Clean up
 clean:
