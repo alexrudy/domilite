@@ -1,5 +1,8 @@
 env_list = [
-    "py311",
+    "py3.11",
+    "py3.12",
+    "py3.13",
+    "py3.14",
     "coverage",
     "style",
     "typing",
@@ -20,7 +23,7 @@ commands = [
 ]
 
 [env.coverage]
-depends = ["py311", "py312"]
+depends = ["py3.11", "py3.12", "py3.13"]
 runner = "uv-venv-lock-runner"
 dependency_groups = ["tests"]
 commands = [["coverage", "report", "--fail-under=90", "--skip-covered"]]

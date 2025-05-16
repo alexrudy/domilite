@@ -14,28 +14,41 @@ env:
 
 jobs:
     python:
-        name: tox ${{ matrix.tox }}
+        name: ${{ matrix.tox || matrix.python }}
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false
             matrix:
-                tox: [py311, typing, style]
-                python: [3.11]
+                include:
+                    - { python: "3.14.0-beta.1", tox: "3.14" }
+                    - { python: "3.13" }
+                    - { python: "3.12" }
+                    - { python: "3.11" }
+                    - { python: "3.11", tox: "style" }
         steps:
             - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
+            - uses: astral-sh/setup-uv@v6
               with:
-                  node-version: "21"
+                  enable-cache: true
+                  prune-cache: false
             - uses: actions/setup-python@v5
               with:
                   python-version: ${{ matrix.python }}
-            - name: Install dot
-              run: sudo apt-get install -y graphviz
-              if: matrix.tox == 'docs'
-            - name: update pip
-              run: |
-                  pip install -U wheel
-                  pip install -U setuptools
-                  python -m pip install -U pip
-            - run: pip install tox-uv
-            - run: tox -e ${{ matrix.tox }}
+            - run: uv run --group tox --locked tox run -e ${{ matrix.tox || format('py{0}', matrix.python) }}
+    typing:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: astral-sh/setup-uv@v6
+              with:
+                  enable-cache: true
+                  prune-cache: false
+            - uses: actions/setup-python@v5
+              with:
+                  python-version-file: "pyproject.toml"
+            - name: cache mypy
+              uses: actions/cache@v4
+              with:
+                  path: ./.mypy_cache
+                  key: mypy|${{ hashFiles('pyproject.toml') }}
+            - run: uv run --group tox --locked tox run -e typing

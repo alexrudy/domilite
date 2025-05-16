@@ -11,13 +11,18 @@ dependencies = [
     "markupsafe>=3.0.2",
 ]
 license = "MIT"
+license-files = ["LICENSE"]
 keywords = []
 classifiers = [
     "Development Status :: 4 - Beta",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Text Processing",
+    "Topic :: Utilities",
+    "Typing :: Typed",
 ]
 
 
@@ -27,9 +32,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 source = "vcs"
-
-[tool.hatch.build.hooks.vcs]
-version-file = "src/domilite/_version.py"
 
 [tool.hatch.version.raw-options]
 local_scheme = "no-local-version"
@@ -85,14 +87,19 @@ omit = ["src/domilite/_version.py", "src/domilite/testing/*"]
 line-length = 120
 
 [tool.ruff]
+src = ["src"]
+fix = true
+show-fixes = true
+output-format = "full"
 line-length = 120
 
 [tool.ruff.lint.isort]
 force-single-line = true
 
 [tool.mypy]
-files = "src/domilite"
+files = ["src"]
 python_version = "3.11"
+pretty = true
 show_error_codes = true
 allow_redefinition = true
 disallow_subclassing_any = true
