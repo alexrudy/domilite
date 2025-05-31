@@ -82,6 +82,11 @@ def test_classes_swap(classes: Classes) -> None:
     assert list(classes) == ["two", "three", "four"]
 
 
+def test_classes_validates(classes: Classes) -> None:
+    with pytest.raises(ValueError):
+        classes.add("bad class")
+
+
 def test_chaining_classes(attributes: Attributes, classes: Classes) -> None:
     classes.add("one", "two", "three").classes.swap("three", "four").classes.remove("two").classes.discard(
         "five"
