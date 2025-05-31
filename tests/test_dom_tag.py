@@ -173,3 +173,10 @@ def test_find_tag():
     assert parent.find_tag_type("child") == child
     assert parent.find_tag_type("a") == a
     assert parent.find_tag_type("html") is None
+
+
+def test_descendants():
+    b = dom_tag(name="b")
+    a = dom_tag(b, name="a")
+    b.add(dom_tag("hello", name="c"))
+    assert {t.attributes["name"] for t in a.descendants()} == {"b", "c"}
