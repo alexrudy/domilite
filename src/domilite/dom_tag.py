@@ -163,7 +163,7 @@ class dom_tag:
 
         """
         for child in children:
-            if isinstance(child, str):
+            if isinstance(child, str) and not isinstance(child, Markup):
                 child = Markup.escape(child)
             self.children.append(child)
         return self
@@ -333,9 +333,20 @@ class dom_tag:
         stream.write(f"</{self.name}>")
         return
 
+    def _iter_children(self) -> Iterator["dom_tag | Markup"]:
+        for child in self.children:
+            if isinstance(child, dom_tag):
+                yield child
+            elif isinstance(child, Markup):
+                yield child
+            elif isinstance(child, list):
+                yield from child
+            else:
+                raise TypeError(f"Unsupported child type: {type(child)}")
+
     def _render_children(self, stream: RenderStream) -> bool:
         inline = True
-        for child in self.children:
+        for child in self._iter_children():
             if isinstance(child, dom_tag):
                 if (RenderFlags.PRETTY in stream.flags) and Flags.INLINE not in child.flags:
                     _trace("newline()")

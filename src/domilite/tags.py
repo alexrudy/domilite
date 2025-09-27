@@ -6,6 +6,7 @@ from domilite.dom_tag import dom_tag
 from domilite.render import RenderStream
 
 __all__ = [
+    "dom_tag",
     "html_tag",
     "html",
     "head",
