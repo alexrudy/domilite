@@ -6,12 +6,12 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-from domilite import __about__
+from sphinx_pyproject import SphinxConfig
+
+config = SphinxConfig("../../pyproject.toml", globalns=globals(), config_overrides={"version": "0.1.3"})
 
 project = "Domilite"
-copyright = f"2025, {__about__.author}"
-author = __about__.author
-release = __about__.version
+
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -36,4 +36,4 @@ exclude_patterns: list[str] = []
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "alabaster"
-html_static_path = ["_static"]
+html_static_path = []
