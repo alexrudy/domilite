@@ -92,6 +92,11 @@ class Classes(MutableSet[str], Generic[S]):
     def __str__(self) -> str:
         return self.render()
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Classes):
+            return NotImplemented
+        return set(self._classes) == set(other._classes)
+
     def __repr__(self) -> str:
         if not self._classes:
             return "{}"
