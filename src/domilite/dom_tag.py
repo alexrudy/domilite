@@ -165,6 +165,10 @@ class dom_tag:
         for child in children:
             if isinstance(child, str) and not isinstance(child, Markup):
                 child = Markup.escape(child)
+
+            if not isinstance(child, (dom_tag, str, Markup)):  # pragma: no cover
+                raise TypeError("child must be a dom_tag, str, or Markup")
+
             self.children.append(child)
         return self
 
@@ -339,8 +343,6 @@ class dom_tag:
                 yield child
             elif isinstance(child, Markup):
                 yield child
-            elif isinstance(child, list):
-                yield from child
             else:
                 raise TypeError(f"Unsupported child type: {type(child)}")
 
@@ -357,7 +359,7 @@ class dom_tag:
             elif isinstance(child, Markup):
                 _trace("write")
                 stream.write(child)
-            else:
+            else:  # pragma: no cover
                 raise TypeError(f"Unsupported child type: {type(child)}")
         return inline
 
