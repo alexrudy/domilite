@@ -44,6 +44,14 @@ class TagTemplate(Generic[H]):
         if classes is not None:
             self.classes.add(*classes)
 
+    def __repr__(self) -> str:
+        parts = [repr(self.tag)]
+        if len(self.attributes):
+            parts.append(f"{len(self.attributes)} attributes")
+        if len(self.classes):
+            parts.append(f"{len(self.classes)} classes")
+        return f"<{self.__class__.__name__} {' '.join(parts)}>"
+
     def __eq__(self, other: object) -> bool:
         if isinstance(other, dom_tag):
             return self.tag is type(other) and self.attributes == other.attributes
