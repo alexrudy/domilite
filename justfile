@@ -34,8 +34,8 @@ htmlcov PORT="8082":
     uv run python -m http.server --directory=htmlcov/ {{PORT}}
 
 # Build docs
-docs:
-    cd docs && make html
+docs builder="html":
+    cd docs && uv run --group docs sphinx-build -b {{builder}} -d build/doctrees source build/html
 
 # serve documentation with
 docs-serve PORT="8083":
