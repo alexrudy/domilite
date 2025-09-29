@@ -124,8 +124,13 @@ __all__ = [
 class html_tag(dom_tag):
     """Any valid HTML tag"""
 
+    #: A helper for accessing attributes of the form `data-` as often used by client JS libraries. The `data-` prefix is not required on this attribute.
     data: PrefixAccessor["html_tag"] = PrefixAccessor("data")
+
+    #: A helper for accessing attributes of the form `aria-` for accessibility. The `aria-` prefix is not required on this attribute.
     aria: PrefixAccessor["html_tag"] = PrefixAccessor("aria")
+
+    #: A helper for accessing attributes of the form `hx-` for htmlx. The `hx-` prefix is not required on this attribute.
     hx: PrefixAccessor["html_tag"] = PrefixAccessor("hx")
 
 
