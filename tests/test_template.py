@@ -1,6 +1,5 @@
 import pytest
 
-from domilite.dom_tag import dom_tag
 from domilite.tags import div
 from domilite.tags import span
 from domilite.template import TagTemplate
