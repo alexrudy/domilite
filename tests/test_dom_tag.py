@@ -180,3 +180,14 @@ def test_descendants():
     a = dom_tag(b, name="a")
     b.add(dom_tag("hello", name="c"))
     assert {t.attributes["name"] for t in a.descendants()} == {"b", "c"}
+
+
+def test_multiline_text():
+    a = dom_tag(name="a")
+    b = dom_tag(name="b")
+    b.add(Markup("Something\nover\nmultiple lines"))
+    a.add(b)
+    assert (
+        a.render()
+        == '<dom_tag name="a">\n  <dom_tag name="b">Something\n    over\n    multiple lines</dom_tag>\n</dom_tag>'
+    )

@@ -83,8 +83,5 @@ class RenderParts:
     def append(self, item: str) -> None:
         self.parts.append(item)
 
-    def prepend(self, item: str) -> None:
-        self.parts.insert(0, item)
-
     def close(self) -> None:
         self.stream.write(self.joiner.join(self.parts))
