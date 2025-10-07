@@ -160,21 +160,6 @@ class TestRenderParts:
         parts.append("world")
         assert parts.parts == ["hello", "world"]
 
-    def test_prepend(self, parts):
-        parts.append("world")
-        parts.prepend("hello")
-        assert parts.parts == ["hello", "world"]
-
-    def test_prepend_empty(self, parts):
-        parts.prepend("first")
-        assert parts.parts == ["first"]
-
-    def test_prepend_multiple(self, parts):
-        parts.append("three")
-        parts.prepend("two")
-        parts.prepend("one")
-        assert parts.parts == ["one", "two", "three"]
-
     def test_close_empty(self, stream, parts):
         parts.close()
         assert stream.getvalue() == ""
@@ -201,9 +186,8 @@ class TestRenderParts:
     def test_context_manager_integration(self, stream):
         with stream.parts(joiner="-") as parts:
             parts.append("a")
-            parts.prepend("start")
             parts.append("b")
-        assert stream.getvalue() == "start-a-b"
+        assert stream.getvalue() == "a-b"
 
     def test_complex_rendering_scenario(self, stream):
         stream.write("prefix:")
@@ -238,9 +222,8 @@ class TestIntegration:
             with stream.parts(joiner=", ") as parts:
                 parts.append("attr1")
                 parts.append("attr2")
-                parts.prepend("start")
 
-        expected = "document:\n    comment content\n    start, attr1, attr2"
+        expected = "document:\n    comment content\n    attr1, attr2"
         assert stream.getvalue() == expected
 
     def test_nested_indentation_and_parts(self):
