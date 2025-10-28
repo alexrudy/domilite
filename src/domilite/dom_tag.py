@@ -103,10 +103,10 @@ class dom_tag:
 
     """
 
-    __slots__ = ("_attributes_inner", "children", "__weakref__")
+    __slots__ = ("_attributes_inner", "children", "_flags", "__weakref__")
 
     #: Rendering flags for this tag.
-    flags: ClassVar["Flags"] = Flags.PRETTY
+    flags: Flags = Flags.PRETTY
 
     #: The attributes associated with this tag. See :class:`~domilite.accessors.Attributes` for more details.
     attributes: ClassVar[AttributesProperty["dom_tag"]] = AttributesProperty()
@@ -121,6 +121,13 @@ class dom_tag:
     name: Name = Name()
 
     def __init__(self, *args: "str | dom_tag | Markup", **kwargs: str | bool) -> None:
+        flag_arguments = {}
+        for flag in Flags:
+            name = flag.name
+            if name is not None:
+                flag_arguments[name] = kwargs.pop(f"__{name.lower()}", flag in self.flags)
+        self._flags = self.flags.with_arguments(**flag_arguments)
+
         self.attributes.update(kwargs)
         self.children = []
         self.add(*args)
@@ -306,7 +313,7 @@ class dom_tag:
         return self.render()
 
     def _render(self, stream: RenderStream) -> None:
-        pretty = stream.flags.is_pretty and self.flags.is_pretty
+        pretty = stream.flags.is_pretty and self._flags.is_pretty
 
         _trace("open <")
         stream.write("<")
@@ -317,14 +324,14 @@ class dom_tag:
             stream.write(" ")
             self.attributes._render(stream)
 
-        if (self.flags & Flags.SINGLE) and (stream.flags & RenderFlags.XHTML):
+        if (self._flags & Flags.SINGLE) and (stream.flags & RenderFlags.XHTML):
             _trace("open single xhtml />")
             stream.write(" />")
         else:
             _trace("open tag >")
             stream.write(">")
 
-        if self.flags & Flags.SINGLE:
+        if self._flags & Flags.SINGLE:
             return
 
         with stream.indented():
@@ -350,7 +357,7 @@ class dom_tag:
         inline = True
         for child in self._iter_children():
             if isinstance(child, dom_tag):
-                if (RenderFlags.PRETTY in stream.flags) and Flags.INLINE not in child.flags:
+                if (RenderFlags.PRETTY in stream.flags) and Flags.INLINE not in child._flags:
                     _trace("newline()")
                     inline = False
                     stream.newline()

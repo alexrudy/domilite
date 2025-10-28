@@ -41,7 +41,7 @@ class TestContextFlags:
 class TestRenderStream:
     @pytest.fixture
     def stream(self):
-        return RenderStream()
+        return RenderStream(flags=RenderFlags.PRETTY)
 
     def test_write_single_line(self, stream):
         stream.write("hello")
@@ -244,7 +244,7 @@ class TestIntegration:
         assert stream.getvalue() == expected
 
     def test_nested_indentation_and_parts(self):
-        stream = RenderStream()
+        stream = RenderStream(flags=RenderFlags.PRETTY)
 
         with stream.indented():
             stream.write("level1")

@@ -50,9 +50,12 @@ class RenderStream:
 
     @contextlib.contextmanager
     def indented(self) -> Iterator[None]:
-        self.current_indent += 1
+        if self.flags & RenderFlags.PRETTY:
+            self.current_indent += 1
         yield
-        self.current_indent -= 1
+
+        if self.flags & RenderFlags.PRETTY:
+            self.current_indent -= 1
 
     @contextlib.contextmanager
     def comment(self) -> Iterator[None]:
