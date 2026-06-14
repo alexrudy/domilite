@@ -13,6 +13,8 @@ from typing import Self
 from typing import TypeVar
 from typing import overload
 
+from markupsafe import escape
+
 from domilite.render import RenderFlags
 from domilite.render import RenderParts
 from domilite.render import RenderStream
@@ -205,6 +207,9 @@ class Attributes(MutableMapping[str, str | bool], Generic[S]):
         if attribute == "_":
             return attribute
 
+        if attribute == "":
+            raise ValueError("attribute name cannot be empty")
+
         # Workaround for Python's reserved words
         if attribute[0] == "_":
             attribute = attribute[1:]
@@ -328,9 +333,9 @@ class Attributes(MutableMapping[str, str | bool], Generic[S]):
 
     def _render_attribute(self, name: str, value: str, parts: RenderParts) -> None:
         if name == value and not (parts.flags & RenderFlags.XHTML):
-            parts.append(name)
+            parts.append(escape(name))
         else:
-            parts.append(f'{name}="{value}"')
+            parts.append(f'{escape(name)}="{escape(value)}"')
 
     def set(self, key: str, value: str | bool) -> S:
         """Set an attribute to a value, and return the underlying tag.
