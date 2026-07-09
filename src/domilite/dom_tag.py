@@ -121,11 +121,15 @@ class dom_tag:
     name: Name = Name()
 
     def __init__(self, *args: "str | dom_tag | Markup", **kwargs: str | bool) -> None:
-        flag_arguments = {}
+        flag_arguments: dict[str, bool | None] = {}
         for flag in Flags:
             name = flag.name
             if name is not None:
-                flag_arguments[name] = kwargs.pop(f"__{name.lower()}", flag in self.flags)
+                value = kwargs.pop(f"__{name.lower()}", flag in self.flags)
+                if not isinstance(value, (bool, type(None))):
+                    raise TypeError(f"Flag {name} must be a boolean or None, got {type(value).__name__}")
+                flag_arguments[name] = value
+
         self._flags = self.flags.with_arguments(**flag_arguments)
 
         self.attributes.update(kwargs)
